@@ -1,3 +1,7 @@
+{-# LANGUAGE
+    DeriveDataTypeable
+  , DeriveGeneric
+  #-}
 {-|
 Stability : experimental
 
@@ -15,12 +19,16 @@ module DHT.Contact
 import DHT.ID
 import DHT.Types
 
+import Data.Binary
 import Data.Hashable
+import Data.Typeable
 import Data.List
+import GHC.Generics
 
 -- | The address at which a contact can be found
 data Addr = Addr IP Port
-  deriving (Show,Read,Eq,Ord)
+  deriving (Show,Read,Eq,Ord,Generic)
+instance Binary Addr
 
 instance Hashable Addr where
   hashWithSalt s (Addr ip port) = s `hashWithSalt` ip `hashWithSalt` port
@@ -39,7 +47,8 @@ data Goodness
 
   -- | Bad contacts have failed to respond to multiple queries and may be replaced.
   | Bad
-  deriving (Show,Read,Eq,Ord)
+  deriving (Show,Read,Eq,Ord,Generic)
+instance Binary Goodness
 
 -- | A contact has an address and an ID we know them by along with a 'Goodness' ranking.
 data Contact = Contact
@@ -47,7 +56,8 @@ data Contact = Contact
   ,_addr     :: Addr
   ,_goodness :: Goodness
   }
-  deriving (Show,Read,Ord)
+  deriving (Show,Read,Ord,Generic,Typeable)
+instance Binary Contact
 
 -- Contacts are compared for equality on their ID's ONLY
 instance Eq Contact where
