@@ -1,0 +1,41 @@
+name:                DHT
+version:             0.0.1.0
+synopsis:            Kademlia-like Distributed HashTable
+-- description:         
+-- license:             
+license-file:        LICENSE
+author:              Samuel A. Yallop
+maintainer:          syallop@gmail.com
+-- copyright:           
+category:            DHT
+build-type:          Simple
+-- extra-source-files:  
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     DHT
+                     , DHT.Bucket
+                     , DHT.Command
+                     , DHT.Contact
+                     , DHT.ID
+                     , DHT.Message
+                     , DHT.Node
+                     , DHT.Node.Logging
+                     , DHT.Node.Messaging
+                     , DHT.Node.RoutingTable
+                     , DHT.Node.ValueStore
+                     , DHT.Routing
+                     , DHT.Types
+  -- other-modules:       
+  other-extensions:    OverloadedStrings
+  build-depends:       base       >=4.7  && <4.8
+                     , binary     >=0.7  && <0.8
+                     , bytestring >=0.10 && <0.11
+                     , containers >=0.5  && <0.6
+                     , hashable   >=1.2  && <1.3
+                     , network    >=2.6  && <2.7
+                     , random     >=1.1  && <1.2
+                     , time       >=1.4  && <1.5
+                     , word8      >=0.1  && <0.2
+  -- hs-source-dirs:      
+  default-language:    Haskell2010
