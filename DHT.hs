@@ -420,14 +420,16 @@ runDHT :: (Monad m,Functor m)
        -> RoutingTable m
        -> ValueStore m
        -> Logging m
-       -> Addr
+       -> Maybe Addr
        -> DHT m a
        -> m (Either DHTError a)
-runDHT ourAddr size timeF randF msgsys routingTable valStore logging bAddr dht =
+runDHT ourAddr size timeF randF msgsys routingTable valStore logging mBootstrapAddr dht =
   let ourID    = mkID ourAddr size
       config   = DHTConfig timeF randF msgsys routingTable valStore logging ourID ourAddr
-      bDht     = bootstrap bAddr >> dht
-     in _runDHT bDht config
+      dht'     = case mBootstrapAddr of
+                     Nothing -> dht
+                     Just bootstrapAddr -> bootstrap bootstrapAddr >> dht
+     in _runDHT dht' config
 
 -- | Bootstrap against a bootstrap address.
 bootstrap :: (Monad m,Functor m) => Addr -> DHT m ()
