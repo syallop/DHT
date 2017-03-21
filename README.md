@@ -1,11 +1,11 @@
-#Haskell Distributed HashTable
+# Haskell Distributed HashTable
 This project defines an API for a distributed HashTable in Haskell, built upon a small set of core commands
 and abstracted over several dependencies such as messaging; routing; storage and logging.
 
 A concrete implementation is exported from `DHT.Node`, whereas the more general functions and functions for writing
 programs are exported from `DHT`.
 
-##Module Structure
+## Module Structure
 Some of the main modules are:
 
 | Module      | Description                                                                                                                                                                       |
@@ -17,7 +17,7 @@ Some of the main modules are:
 | DHT.Contact | Associate contact ID’s to their `Addr`esses and other metadata                                                                                                                    |
 | DHT.Routing | A Routing table which remembers `Contact`s by their distance to ourself, such that many close contacts and few far away contacts are kept. Allowing log(n) routing                |
 
-##Commands
+## Commands
 The core exported DHT commands are:
 
 | Command     | Type                                       | Meaning                                                                              |
@@ -42,7 +42,7 @@ Which attempts to ping an address (which may not have been seen before)
 . then stores a value at places deemed appropriate and finally attempts
 to retrieve it along with a list of contacts deemed ‘near’.
 
-##Execution
+## Execution
 Programs can be ran by calling a ‘runDHT’ function which is supplied a variety of configuration options
 and into which several dependent subsystems are injected.
 ```haskell
