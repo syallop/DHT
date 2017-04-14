@@ -20,7 +20,7 @@ module DHT
   ,MessagingOp(..)
   ,RoutingTableOp(..)
   ,ValueStoreOp(..)
-  ,LoggingOp(..)
+  ,LoggingOp
   ,SendF,WaitF,RouteF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
 
   -- ** DHT functions
@@ -48,10 +48,12 @@ module DHT
   ,timeNow
   ,randomInt
   ,lg
+
+  ,joinDHT
+  ,timeOut
   )
   where
 
-import Control.Applicative
 import Control.Arrow              (first)
 import Control.Monad
 import Data.Binary
@@ -59,7 +61,6 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.List                  ((\\),nub)
 import Data.Typeable
 
-import DHT.Bucket
 import DHT.Command
 import DHT.Contact
 import DHT.ID
@@ -282,10 +283,10 @@ store v = do
   ourAddr <- askOurAddr
   let vID = mkID v size
   res     <- lookupContact ourAddr vID
-  let cs  = case res of
-              (cs,Just c)  -> c:cs
-              (cs,Nothing) -> cs
-  ids <- mapM (storeAt v . _addr) cs
+  let cts  = case res of
+               (cs,Just c)  -> c:cs
+               (cs,Nothing) -> cs
+  _ids <- mapM (storeAt v . _addr) cts
 
   -- TODO: Although its likely the messaging system wont even return to us non-matching ID's
   -- it is permitted to act that way. Therefore we should check that all ID's are the same (and
@@ -323,15 +324,15 @@ findValue :: (Monad m,Functor m) => ID -> DHT m ([Contact],Maybe ByteString)
 findValue vID = do
   ourAddr <- askOurAddr
   res     <- lookupContact ourAddr vID
-  let cs = case res of
-             -- TODO: Same as 'findContact' TODO (which we could probably share more code with)
-             (cs,Just c) -> c:cs
-             (cs,_)      -> cs
+  let cts = case res of
+              -- TODO: Same as 'findContact' TODO (which we could probably share more code with)
+              (cs,Just c) -> c:cs
+              (cs,_)      -> cs
 
   mV <- lookupValue vID
   case mV of
-    Just v -> return (cs,Just v)
-    _      -> findData FindValue vID cs
+    Just v -> return (cts,Just v)
+    _      -> findData FindValue vID cts
 
 -- Attempt to find the data associated with sending some Command to Contacts in the DHT.
 -- Return a list of neighbour Contacts alongside the possible found data.
@@ -342,13 +343,13 @@ findData :: (Monad m,Functor m
             ,Typeable d
             )
          => Command c -> In c -> [Contact] -> DHT m (Out c)
-findData cmd i cs = findData' cmd i [] cs
+findData cmmnd input = findData' cmmnd input []
   where
-    findData' cmd i askedCs considerCs = do
+    findData' cmnd i askedCs considerCs = do
 
       -- Query each contact for their k-nearest known contacts, and the desired value if they have it
       results <- forM considerCs $
-          \c -> sendMessage (_addr c) $ RequestMsg cmd i
+          \c -> sendMessage (_addr c) $ RequestMsg cmnd i
 
       let result = flattenResults results
       case result of
@@ -356,7 +357,7 @@ findData cmd i cs = findData' cmd i [] cs
         -- Sought data not found, only neighbouring contacts
         (cs,Nothing)
           | null (cs \\ askedCs) -> return result -- no new contacts to ask
-          | otherwise            -> findData' cmd i (askedCs ++ considerCs) cs
+          | otherwise            -> findData' cmnd i (askedCs ++ considerCs) cs
 
         -- At least one contact returned the data
         _ -> return result
@@ -398,26 +399,26 @@ bootstrap bAddr = do
   ourID   <- askOurID
   ourAddr <- askOurAddr
   res     <- findContact ourID
-  let cs = case res of
-             (cs,Nothing) -> cs
+  let cts = case res of
+              (cs,Nothing) -> cs
 
-             -- We're already known:
-             (cs,Just c)
-               -- Either:
-               -- 1. Bootstrapping more than once.
-               -- This is equivalent to pinging to let them know we still exist except we might also get
-               -- knowledge of new neighbours.
-               --
-               -- 2. Havnt been forgotten since a previous session.
-               -- We *should* be able to just continue where we left of
-               | _addr c == ourAddr -> cs
+              -- We're already known:
+              (cs,Just c)
+                -- Either:
+                -- 1. Bootstrapping more than once.
+                -- This is equivalent to pinging to let them know we still exist except we might also get
+                -- knowledge of new neighbours.
+                --
+                -- 2. Havnt been forgotten since a previous session.
+                -- We *should* be able to just continue where we left of
+                | _addr c == ourAddr -> cs
 
-               -- 3. Somebody elses ID has collided with us
-               -- TODO: Do something reasonable other than nothing. Maybe change how IDs are picked.
-               | otherwise -> []
+                -- 3. Somebody elses ID has collided with us
+                -- TODO: Do something reasonable other than nothing. Maybe change how IDs are picked.
+                | otherwise -> []
 
   -- ping all of our neighbours so they know we exist and might enter their routing table.
-  pingAll $ map _addr cs
+  pingAll $ map _addr cts
 
 -- | Terminate the connection to the DHT.
 --
@@ -459,13 +460,13 @@ handleMessage enquirerAddr msg = case msg of
             -- k-closest contact near to the value
             res <- lookupContact enquirerAddr cmdInput
 
-            let ns = case res of
-                         (ns,Nothing) -> ns
-                         (ns,Just n)  -> n:ns
+            let nbs = case res of
+                        (ns,Nothing) -> ns
+                        (ns,Just n)  -> n:ns
 
             case mv of
-              Just v  -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (ns,Just v)
-              Nothing -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (ns,Nothing)
+              Just v  -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Just v)
+              Nothing -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Nothing)
 
   -- A response to a query we probably made. 'routeResponse' is delegated to
   -- checking its actually in response to something we sent and routing it to wherever is waiting for the response

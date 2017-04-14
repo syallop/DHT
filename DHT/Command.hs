@@ -32,12 +32,10 @@ module DHT.Command
 
 import Data.Function
 
-import DHT.Bucket
 import DHT.Contact
 import DHT.ID
 
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.Function              (on)
 import Data.Word8
 
 -- | DataKind promoted tag of command variants
@@ -51,10 +49,10 @@ data CMD = PING | STORE | FINDVALUE | FINDCONTACT
 --  Foo  :: Command FOO
 --  etc.
 data Command (c :: CMD) where
-  Ping        :: Command PING
-  Store       :: Command STORE
-  FindContact :: Command FINDCONTACT
-  FindValue   :: Command FINDVALUE
+  Ping        :: Command 'PING
+  Store       :: Command 'STORE
+  FindContact :: Command 'FINDCONTACT
+  FindValue   :: Command 'FINDVALUE
 
 -- Translate a Command to its corresponding CMD
 cmd :: Command c -> CMD
@@ -71,7 +69,7 @@ instance Ord (Command c) where compare = compareCommand
 instance Eq (Command c) where (==) = on (==) cmd
 
 instance Show (Command c) where
-  show cmd = case cmd of
+  show c = case c of
     Ping -> "Ping"
     Store -> "Store"
     FindContact -> "FindContact"
@@ -81,32 +79,32 @@ instance Show (Command c) where
 -- or it is typed 'Either () Addr' indicating it may be targeted at the DHT as a whole ( () ) as well
 -- as at a specific Address.
 type family Target (cmd :: CMD) where
-    Target PING        = Addr
-    Target STORE       = Addr
-    Target FINDVALUE   = Either () Addr
-    Target FINDCONTACT = Either () Addr
+    Target 'PING        = Addr
+    Target 'STORE       = Addr
+    Target 'FINDVALUE   = Either () Addr
+    Target 'FINDCONTACT = Either () Addr
 
 -- | A 'CMD' has an input when sent.
 type family In (cmd :: CMD) where
-    In PING        = Int
-    In STORE       = ByteString
-    In FINDVALUE   = ID
-    In FINDCONTACT = ID
+    In 'PING        = Int
+    In 'STORE       = ByteString
+    In 'FINDVALUE   = ID
+    In 'FINDCONTACT = ID
 
 -- | A 'CMD@ has an expected output type when received.
 type family Out (cmd :: CMD) where
-    Out PING        = Int
-    Out STORE       = ID
-    Out FINDVALUE   = ([Contact],Maybe ByteString)
-    Out FINDCONTACT = ([Contact],Maybe Contact)
+    Out 'PING        = Int
+    Out 'STORE       = ID
+    Out 'FINDVALUE   = ([Contact],Maybe ByteString)
+    Out 'FINDCONTACT = ([Contact],Maybe Contact)
 
 -- | When returning a response to a received 'CMD', data is attatched which is either
 -- just an 'Out'put value, or an Output value paired with the 'In'put being responded to.
 type family Resp (cmd :: CMD) where
-    Resp PING        = Out PING
-    Resp STORE       = Out STORE
-    Resp FINDVALUE   = (In FINDVALUE,Out FINDVALUE)
-    Resp FINDCONTACT = (In FINDCONTACT,Out FINDCONTACT)
+    Resp 'PING        = Out 'PING
+    Resp 'STORE       = Out 'STORE
+    Resp 'FINDVALUE   = (In 'FINDVALUE,Out 'FINDVALUE)
+    Resp 'FINDCONTACT = (In 'FINDCONTACT,Out 'FINDCONTACT)
 
 -- | Map Commands to a unique tag value
 commandTag :: Command c -> Word8

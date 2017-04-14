@@ -15,11 +15,6 @@ import DHT.Op.Messaging    as Op
 import DHT.Op.RoutingTable as Op
 import DHT.Op.ValueStore   as Op
 
-import DHT.Bucket
-import DHT.Command
-import DHT.Contact
-import DHT.ID
-import DHT.Message
 import DHT.Types
 
 -- | A Possible logging function in 'm'.

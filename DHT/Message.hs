@@ -42,12 +42,10 @@ module DHT.Message
   ,showMessage
   ) where
 
-import DHT.Bucket
 import DHT.Command
 import DHT.Contact
 import DHT.ID
 
-import Control.Applicative
 import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Put
@@ -69,9 +67,9 @@ data Message mt mr c where
                 -> Message Addr       ()      c
 
 instance (Show (Command c),Show (In c),Show (Resp c)) => Show (Message mt mr c) where
-  show cmd = case cmd of
-    RequestMsg cmd i -> "Request " ++ show cmd ++ show i
-    ResponseMsg cmd resp -> "Response " ++ show cmd ++ show resp
+  show cmmnd = case cmmnd of
+    RequestMsg c i -> "Request " ++ show c ++ show i
+    ResponseMsg c resp -> "Response " ++ show c ++ show resp
 
 showMessage :: Message mt mr c -> String
 showMessage msg = case msg of
@@ -84,14 +82,14 @@ showMessage msg = case msg of
   ResponseMsg cmd resp -> case cmd of
     Ping        -> show resp
     Store       -> showBits resp
-    FindContact -> let (cID,(cs,mc)) = resp in showBits cID ++ " " ++ showContacts cs ++ (maybe "" (\c -> " " ++ showContact c) mc)
+    FindContact -> let (cID,(cs,mc)) = resp in showBits cID ++ " " ++ showContacts cs ++ maybe "" (\c -> " " ++ showContact c) mc
     FindValue   -> let (vID,(cs,mv)) = resp in showBits vID ++ " " ++ showContacts cs ++ maybe "" show mv
 
 -- | Encode a 'Message' to a ByteString.
 encodeMessage :: (Binary (In c), Binary (Resp c)) => Message mt mr c -> ByteString
 encodeMessage msg = runPut $ case msg of
-    RequestMsg  cmd i -> putWord8 0 >> put (commandTag cmd) >> put i
-    ResponseMsg cmd r -> putWord8 1 >> put (commandTag cmd) >> put r
+    RequestMsg  c i -> putWord8 0 >> put (commandTag c) >> put i
+    ResponseMsg c r -> putWord8 1 >> put (commandTag c) >> put r
 
 
 -- request conveniences

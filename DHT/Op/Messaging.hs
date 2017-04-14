@@ -1,6 +1,5 @@
 {-# LANGUAGE
     FlexibleContexts
-  , GADTs
   , RankNTypes
   #-}
 {-|
@@ -16,20 +15,11 @@ module DHT.Op.Messaging
   ,SendF
   ) where
 
-import Control.Applicative
-import Control.Arrow              (first)
-import Control.Monad
-import Data.Binary
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.List                  ((\\),nub)
 import Data.Typeable
 
-import DHT.Bucket
 import DHT.Command
 import DHT.Contact
-import DHT.ID
-import DHT.Message
-import DHT.Types
 
 -- | Messaging operations.
 -- In some 'm' provide functions for:

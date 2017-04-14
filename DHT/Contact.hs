@@ -64,7 +64,7 @@ instance Eq Contact where
   (Contact id0 _ _) == (Contact id1 _ _) = id0 == id1
 
 showContact :: Contact -> String
-showContact (Contact id addr _) = concat ["<",showBits id,"@",showAddr addr,">"]
+showContact (Contact i addr _) = concat ["<",showBits i,"@",showAddr addr,">"]
 
 showContacts :: [Contact] -> String
 showContacts []     = "{}"

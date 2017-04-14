@@ -14,7 +14,7 @@ and few which are futher away. Contacts will not be kept if:
 -}
 module DHT.Routing
   (-- * Core functions on Routing tables
-    Routing()
+    Routing ()
   , empty
   , insert
   , inserts
@@ -34,7 +34,6 @@ module DHT.Routing
 
 import Prelude hiding (lookup)
 
-import Control.Applicative hiding (empty)
 import Data.Foldable              (foldrM)
 import Data.List           hiding (insert,lookup)
 
@@ -105,7 +104,7 @@ ourRoutingID = _ourID
 
 -- | An initial, empty routing structure (Does NOT contain ourself).
 empty :: Int -> ID -> Time -> Routing
-empty maxBucketSize ourID now = Routing maxBucketSize ourID $ Leaf $ emptyBucket now
+empty maxSize ourID now = Routing maxSize ourID $ Leaf $ emptyBucket now
 
 
 {- INSERT -}
@@ -180,6 +179,7 @@ insert cAddr now ping rt = finalRt
 
     -- impossible
     insertTree [] _ _ = error "insertTree: calculated distance too short"
+    insertTree _ _ _  = error "insertTree"
 
 -- | 'insert' multiple 'Addr's at the same 'Time'.
 inserts :: Monad m => [Addr] -> Time -> (Addr -> m Bool) -> Routing -> m Routing
@@ -191,8 +191,8 @@ sortTo targetID = map fst . sortBy (\(_,d) (_,d') -> compare d' d) . map (\c@(Co
 
 -- sort a list of Contact's by their distance to an ID. Separate an exact match.
 sortFor :: ID -> [Contact] -> ([Contact],Maybe Contact)
-sortFor targetID cs = case sortTo targetID cs of
-  []     -> ([],Nothing)
+sortFor targetID ctcts = case sortTo targetID ctcts of
+  []                    -> ([],Nothing)
   (c:cs)
     | _ID c == targetID -> (cs,Just c)
     | otherwise         -> (c:cs,Nothing)
@@ -298,6 +298,7 @@ lookup enquirerAddr targetID now rt =
                     | otherwise -> (Branch ls' rs, lk')
 
     lookupTree [] _ _ = error "lookupTree: calculated distance too short"
+    lookupTree _  _ _ = error "lookupTree"
 
 -- | If there is a 'Contact' with the given 'ID', then modify it.
 modify :: ID -> (Contact -> Contact) -> Routing -> Maybe Routing
@@ -321,4 +322,5 @@ modify targetID cF rt = do
                                Just $ Branch further' nearer
 
              [] -> error "modifyTree: calculated distance too short"
+             _  -> error "modifyTree"
 

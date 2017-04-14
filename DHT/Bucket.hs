@@ -9,7 +9,7 @@ Stability : experimental
 -}
 module DHT.Bucket
   (-- * Bucket functions
-    Bucket()
+    Bucket ()
   , emptyBucket
 
   -- ** Query state
@@ -26,7 +26,6 @@ module DHT.Bucket
   , modifyBucketContact
   ) where
 
-import Control.Applicative
 import Data.List
 
 import DHT.Contact
@@ -89,7 +88,7 @@ dropBad (Bucket lu neighbours) = Bucket <$> pure lu <*> f neighbours
 -- | Update a bucket by running an update function one by one on any Questionable Contacts, setting
 -- contacts which reply to Good. If a contact becomes Bad, it is returned and the update short-circuits.
 updateBucket :: forall m. Monad m => Bucket -> (Addr -> m Bool) -> m (Bucket,Bool)
-updateBucket (Bucket lu cs) f = updateContacts cs >>= \(cs',contactDropped) -> return (Bucket lu cs',contactDropped)
+updateBucket (Bucket lu ctcts) f = updateContacts ctcts >>= \(cs,contactDropped) -> return (Bucket lu cs,contactDropped)
   where
     updateContacts :: Monad m => [Contact] -> m ([Contact],Bool)
     updateContacts []     = return ([],False)
@@ -111,8 +110,8 @@ updateBucket (Bucket lu cs) f = updateContacts cs >>= \(cs',contactDropped) -> r
 -- | If a node with the given ID is stored by the bucket, modify it.
 modifyBucketContact :: ID -> (Contact -> Contact) -> Bucket -> Maybe Bucket
 modifyBucketContact _   _ (Bucket _ [])     = Nothing
-modifyBucketContact tID f (Bucket l (c:cs))
-  | _ID c == tID = Just $ Bucket l (f c : cs)
-  | otherwise    = do Bucket l cs' <- modifyBucketContact tID f (Bucket l cs)
+modifyBucketContact tID f (Bucket lstUsd (c:cs))
+  | _ID c == tID = Just $ Bucket lstUsd (f c : cs)
+  | otherwise    = do Bucket l cs' <- modifyBucketContact tID f (Bucket lstUsd cs)
                       Just $ Bucket l (c:cs')
 

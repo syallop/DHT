@@ -1,5 +1,6 @@
 {-# LANGUAGE
     PatternSynonyms
+   ,TypeOperators
   #-}
 {-|
 Stability : experimental
@@ -25,6 +26,9 @@ module DHT.ID
   ,Distance
   ,pattern Far
   ,pattern Near
+
+  ,toBits
+  ,fromBits
   ) where
 
 import Data.List
@@ -33,7 +37,11 @@ import qualified Data.Bits as B
 
 -- | A binary digit
 type Bit = Bool
+
+pattern Zero :: Bool
 pattern Zero = False
+
+pattern One :: Bool
 pattern One  = True
 
 -- | A string of 'Bit's
@@ -48,9 +56,7 @@ fromBits :: Bits -> Int
 fromBits bs = foldl' (\acc (i,b) -> if b then B.setBit acc i else acc) 0 $ zip [0..(length bs)] bs
 
 showBit :: Bit -> String
-showBit b = case b of
-  False -> "0"
-  True  -> "1"
+showBit b = if b then "1" else "0"
 
 showBits :: Bits -> String
 showBits = concatMap showBit
@@ -73,11 +79,14 @@ type ID = Bits
 
 -- | A Hashable type can be converted to an ID of a given size.
 mkID :: Hashable a => a -> Int -> ID
-mkID h size = toBits (hash h) size
+mkID h = toBits (hash h)
 
 
 -- | The distance between two bitstrings is a bitstring.
 type Distance = Bits
+pattern Far :: Bool
 pattern Far  = False
+
+pattern Near :: Bool
 pattern Near = True
 
