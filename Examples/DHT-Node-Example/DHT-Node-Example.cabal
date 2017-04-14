@@ -1,0 +1,25 @@
+name:                DHT-Node-Example
+version:             0.1.0.0
+synopsis:            Example of using DHT.Node
+description:         Run several DHT.Node's (which makes the choice of using UDP,MVars,DHT.Routing and in memory Maps to store data)
+                     to test storing and looking up data and neighbours.
+license:             BSD3
+license-file:        LICENSE
+author:              Samuel A. Yallop
+maintainer:          syallop@gmail.com
+-- copyright:
+-- category:
+build-type:          Simple
+--extra-source-files:
+cabal-version:       >=1.10
+
+executable DHT-Example
+  main-is:             Main.hs
+  -- other-modules:
+  other-extensions:    OverloadedStrings
+  build-depends:       base,
+                       bytestring,
+                       string-conv,
+                       DHT
+  -- hs-source-dirs:
+  default-language:    Haskell2010
