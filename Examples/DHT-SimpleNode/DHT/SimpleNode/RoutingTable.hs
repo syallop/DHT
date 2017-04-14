@@ -3,8 +3,8 @@ Stability : experimental
 
 Wraps DHT.Routing into a DHT RoutingTable using MVar shared state.
  -}
-module DHT.Node.RoutingTable
-  (newRoutingTable
+module DHT.SimpleNode.RoutingTable
+  (newSimpleRoutingTable
   )
   where
 
@@ -38,9 +38,9 @@ rtLookup rtState enquirerAddr targetID now = do
   putMVar rtState rt'
   return res
 
-newRoutingTable :: Int -> ID -> Time -> IO (RoutingTable IO)
-newRoutingTable size ourID now = mkRoutingTable <$> newRTState
+newSimpleRoutingTable :: Int -> ID -> Time -> IO (RoutingTableOp IO)
+newSimpleRoutingTable size ourID now = mkRoutingTable <$> newRTState
   where
-    mkRoutingTable rtState = RoutingTable (rtInsert rtState) (rtLookup rtState) (pure size)
+    mkRoutingTable rtState = RoutingTableOp (rtInsert rtState) (rtLookup rtState) (pure size)
     newRTState = newMVar $ empty size ourID now
 

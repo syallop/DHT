@@ -1,9 +1,9 @@
-name:                DHT
+name:                DHT-SimpleNode
 version:             0.0.1.0
-synopsis:            Kademlia-like Distributed HashTable
-description:         An API for a distributed HashTable built on a small set of
-                     core commands and abstracted over dependencies such as
-                     messaging, routing, storage and logging.
+synopsis:            A simple concrete implementation of the DHT package.
+description:         Makes simple choices for instantiating a DHT node using the
+                     DHT API. Particularly uses: UDP, MVars, DHT.Routing and
+                     in-memory HashMaps for data storage, etc.
 -- license:
 license-file:        LICENSE
 author:              Samuel A. Yallop
@@ -15,14 +15,12 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     DHT
-                     , DHT.Bucket
-                     , DHT.Command
-                     , DHT.Contact
-                     , DHT.ID
-                     , DHT.Message
-                     , DHT.Routing
-                     , DHT.Types
+  exposed-modules:     DHT.SimpleNode
+                     , DHT.SimpleNode.Logging
+                     , DHT.SimpleNode.Messaging
+                     , DHT.SimpleNode.RoutingTable
+                     , DHT.SimpleNode.ValueStore
+
   -- other-modules:
   other-extensions:    OverloadedStrings
   build-depends:       base
@@ -34,5 +32,6 @@ library
                      , random
                      , time
                      , word8
+                     , DHT
   -- hs-source-dirs:
   default-language:    Haskell2010

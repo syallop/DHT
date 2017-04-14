@@ -1,7 +1,7 @@
-name:                DHT-Node-Example
+name:                DHT-SimpleNode-Example
 version:             0.1.0.0
-synopsis:            Example of using DHT.Node
-description:         Run several DHT.Node's (which makes the choice of using UDP,MVars,DHT.Routing and in memory Maps to store data)
+synopsis:            Example of using DHT-SimpleNode (which is in turn an example of instantiating DHT)
+description:         Run several DHT.SimpleNode's (which makes the choice of using UDP,MVars,DHT.Routing and in memory Maps to store data)
                      to test storing and looking up data and neighbours.
 license:             BSD3
 license-file:        LICENSE
@@ -20,6 +20,7 @@ executable DHT-Example
   build-depends:       base,
                        bytestring,
                        string-conv,
-                       DHT
+                       DHT,
+                       DHT-SimpleNode
   -- hs-source-dirs:
   default-language:    Haskell2010

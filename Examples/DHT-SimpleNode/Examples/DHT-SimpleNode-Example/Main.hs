@@ -1,13 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import DHT.SimpleNode
+import DHT.SimpleNode.Logging
+
 import DHT
 import DHT.Bucket
 import DHT.ID
 import DHT.Contact
 
-import DHT.Node
-import DHT.Node.Logging
 
 import Control.Concurrent
 import Control.Monad
@@ -131,34 +132,38 @@ testNeighbours = do
 main :: IO ()
 main = do
   -- Create a logger to share across our example nodes
-  mLogging <- newLogging
+  mLogging <- newSimpleLogging
 
   -- Create the first node others will use as a bootstrap.
-  forkVoid_ $ newNode bootstrapAddr
-                      Nothing
-                      mLogging
-                      $ lg "Creating bootstrap node." >> idle
+  forkVoid_ $ newSimpleNode
+                bootstrapAddr
+                Nothing
+                mLogging
+                $ lg "Creating bootstrap node." >> idle
   delay 1
 
   -- Test storing and retrieving a value
-  forkVoid_ $ newNode (Addr "127.0.0.1" 6472)
-                      (Just bootstrapAddr)
-                      mLogging
-                      $ lg "Creating testStore node." >> testStore
+  forkVoid_ $ newSimpleNode
+                (Addr "127.0.0.1" 6472)
+                (Just bootstrapAddr)
+                mLogging
+                $ lg "Creating testStore node." >> testStore
   delay 1
 
   -- Test looking up a value WE didnt store
-  forkVoid_ $ newNode (Addr "127.0.0.1" 6473)
-                      (Just bootstrapAddr)
-                      mLogging
-                      $ lg "Creating testLookup node." >> testLookup
+  forkVoid_ $ newSimpleNode
+                (Addr "127.0.0.1" 6473)
+                (Just bootstrapAddr)
+                mLogging
+                $ lg "Creating testLookup node." >> testLookup
   delay 2
 
   -- Test neighbour lookup
-  forkVoid_ $ newNode (Addr "127.0.0.1" 6474)
-                      (Just bootstrapAddr)
-                      mLogging
-                      $ lg "Creating testNeighbours node." >> testNeighbours
+  forkVoid_ $ newSimpleNode
+                (Addr "127.0.0.1" 6474)
+                (Just bootstrapAddr)
+                mLogging
+                $ lg "Creating testNeighbours node." >> testNeighbours
 
   delay 10
   return ()

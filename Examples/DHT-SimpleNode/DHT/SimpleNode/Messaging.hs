@@ -2,8 +2,8 @@
 {-|
 Stability : experimental
  -}
-module DHT.Node.Messaging
-  (newMessaging
+module DHT.SimpleNode.Messaging
+  (newSimpleMessaging
   )
   where
 
@@ -28,10 +28,10 @@ import Network.Socket (Socket,socket,sClose,connect,withSocketsDo,Family(AF_INET
 
 data MsgState = MsgState
   { -- Map response patterns waited for to MVars waiting for the corresponding message.
-   _replyMap   :: forall c. Map.Map RespPat (MVar SomeOut)
+   _msgStateReplyMap   :: forall c. Map.Map RespPat (MVar SomeOut)
 
   -- Map each Address we've established contact with to its outgoing socket.
-  ,_socketsOut :: Map.Map Addr Socket
+  ,_msgStateSocketsOut :: Map.Map Addr Socket
   }
   -- TODO: These two state items need not be coupled together
 
@@ -42,10 +42,10 @@ type MessagingState = MVar MsgState
 -- all messages have a preceding 'replyport' padded to the given maximum port length.
 -- - Routes and waits on messages using MVars and a notion of pattern matching (rather than, for
 -- example including 'unique' tokens in sent messages).
-newMessaging :: Int -> (Int,Port) -> IO (Messaging IO)
-newMessaging size (maxPortLength,ourPort) = mkMessaging <$> newMessagingState
+newSimpleMessaging :: Int -> (Int,Port) -> IO (MessagingOp IO)
+newSimpleMessaging size (maxPortLength,ourPort) = mkMessaging <$> newMessagingState
   where
-    mkMessaging msgState = Messaging (waitF msgState size) (routeF msgState) (sendF msgState (maxPortLength,ourPort))
+    mkMessaging msgState = MessagingOp (waitF msgState size) (routeF msgState) (sendF msgState (maxPortLength,ourPort))
     newMessagingState = newMVar $ MsgState Map.empty Map.empty
 -- Physically send bytes to the given address.
 -- Reuse sockets if we've contacted the address before.
@@ -58,7 +58,7 @@ sendF msgState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ 
     -- If we dont know of an address, open a new socket and cache it, otherwise return the one in use.
     initialiseSocket = do
       state <- takeMVar msgState
-      case Map.lookup addr $ _socketsOut state of
+      case Map.lookup addr $ _msgStateSocketsOut state of
           Just sock -> putMVar msgState state >> return sock
           Nothing
             -> do let ipv4     = AF_INET
@@ -69,7 +69,7 @@ sendF msgState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ 
                   sock <- socket ipv4 Datagram udp
                   connect sock $ SockAddrInet udpPort inetAddr
 
-                  putMVar msgState (state{_socketsOut = Map.insert addr sock $ _socketsOut state})
+                  putMVar msgState (state{_msgStateSocketsOut = Map.insert addr sock $ _msgStateSocketsOut state})
                   return sock
 
     -- given a Port (represented by an Int), pad it with the appropriate number of leading zeros
@@ -89,7 +89,7 @@ waitF msgState size cmd input = do
   waitMVar :: MVar SomeOut <- newEmptyMVar
   let pattern   = respPat size cmd input
       replyMap' = Map.insert pattern waitMVar replyMap
-  putMVar msgState (state{_replyMap = replyMap'})
+  putMVar msgState (state{_msgStateReplyMap = replyMap'})
 
   (SomeOut cmd o) <- takeMVar waitMVar
   case cast o of
@@ -108,13 +108,13 @@ routeF msgState cmd resp = do
       -- TODO: We've been passed a response to something that isnt being waited on.
       -- Perhaps this should be indicated instead of just silently dropped.
       Nothing
-        -> do putMVar msgState (state{_replyMap=replyMap})
+        -> do putMVar msgState (state{_msgStateReplyMap=replyMap})
               return ()
 
       Just waitMVar
         -> do let replyMap' = Map.delete pattern replyMap
               putMVar waitMVar (SomeOut cmd out)
-              putMVar msgState (state{_replyMap=replyMap'})
+              putMVar msgState (state{_msgStateReplyMap=replyMap'})
 
 
 data SomeOut = forall c. Typeable (Out c) => SomeOut (Command c) (Out c)

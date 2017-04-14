@@ -3,8 +3,8 @@ Stability : experimental
 
 Defines a simple in-memory hashmap ValueStore for use in a DHT.
  -}
-module DHT.Node.ValueStore
-  (newValueStore
+module DHT.SimpleNode.ValueStore
+  (newSimpleValueStore
   )
   where
 
@@ -33,10 +33,10 @@ valLookup valState vID = do
   return $ Map.lookup vID vs
 
 -- | Create a new empty ValueStore to be used by a DHT.
-newValueStore :: IO (ValueStore IO)
-newValueStore = mkValueStore <$> newValState
+newSimpleValueStore :: IO (ValueStoreOp IO)
+newSimpleValueStore = mkValueStore <$> newValState
   where
-    mkValueStore valState = ValueStore (valInsert valState) (valLookup valState)
+    mkValueStore valState = ValueStoreOp (valInsert valState) (valLookup valState)
 
     newValState :: IO ValState
     newValState = newMVar Map.empty

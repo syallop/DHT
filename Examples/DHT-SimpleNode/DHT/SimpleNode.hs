@@ -1,12 +1,12 @@
 {-|
 Stability : experimental
 
-Run a DHT computation using "DHT.Node.Logger", "DHT.Node.Messaging", "DHT.Node.RoutingTable"
-and "DHT.Node.ValueStore" for stdout logging, simple UDP messaging a wrapped "DHT.Routing" routing table
+Run a DHT computation using "DHT.SimpleNode.Logger", "DHT.SimpleNode.Messaging", "DHT.SimpleNode.RoutingTable"
+and "DHT.SimpleNode.ValueStore" for stdout logging, simple UDP messaging a wrapped "DHT.Routing" routing table
 and an in-memory hashmap value store.
 -}
-module DHT.Node
-  ( newNode
+module DHT.SimpleNode
+  ( newSimpleNode
   )
   where
 
@@ -25,23 +25,23 @@ import DHT.ID
 import DHT.Message
 import DHT.Types
 
-import DHT.Node.Logging
-import DHT.Node.Messaging
-import DHT.Node.RoutingTable
-import DHT.Node.ValueStore
+import DHT.SimpleNode.Logging
+import DHT.SimpleNode.Messaging
+import DHT.SimpleNode.RoutingTable
+import DHT.SimpleNode.ValueStore
 
 -- | Start a new node. Attempt to bind ourself to the given 'Addr'ess, bootstrap of a possible 'Addr'ess
 -- , log with the given 'Logger' and execute the given 'DHT IO a' computation providing an error or
 -- the successful result.
 -- - Will handle incoming messages for the duration of the enclosing program.
 -- Continuing communication after we reach the end of our own DHT computation must be programmed explicitly.
-newNode :: Addr -> Maybe Addr -> Logging IO -> DHT IO a -> IO (Either DHTError a)
-newNode ourAddr mBootstrapAddr logging dht = do
+newSimpleNode :: Addr -> Maybe Addr -> LoggingOp IO -> DHT IO a -> IO (Either DHTError a)
+newSimpleNode ourAddr mBootstrapAddr logging dht = do
 
   now          <- timeF
-  routingTable <- newRoutingTable size ourID now
-  valueStore   <- newValueStore
-  messaging    <- newMessaging size (maxPortLength,ourPort)
+  routingTable <- newSimpleRoutingTable size ourID now
+  valueStore   <- newSimpleValueStore
+  messaging    <- newSimpleMessaging size (maxPortLength,ourPort)
 
   let run :: Maybe Addr -> DHT IO a -> IO (Either DHTError a)
       run = runDHT ourAddr size timeF randF messaging routingTable valueStore logging

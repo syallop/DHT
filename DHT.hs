@@ -14,11 +14,13 @@ module DHT
   (-- * DHT and configuration types
    DHT()
   ,DHTError(..)
+  ,DHTOp(..)
   ,DHTConfig(..)
-  ,Messaging(..)
-  ,RoutingTable(..)
-  ,ValueStore(..)
-  ,Logging(..)
+  ,DHTState()
+  ,MessagingOp(..)
+  ,RoutingTableOp(..)
+  ,ValueStoreOp(..)
+  ,LoggingOp(..)
   ,SendF,WaitF,RouteF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
 
   -- ** DHT functions
@@ -68,11 +70,11 @@ import DHT.Types
 
 -- | Messaging operations.
 -- In some 'm' provide functions for:
-data Messaging m = Messaging
-  {_waitResponse  :: WaitF m  -- ^ Waiting for a response to a send message
-  ,_routeResponse :: RouteF m -- ^ Routing a recieved response to a waiter
+data MessagingOp m = MessagingOp
+  {_messagingOpWaitResponse  :: WaitF m  -- ^ Waiting for a response to a send message
+  ,_messagingOpRouteResponse :: RouteF m -- ^ Routing a recieved response to a waiter
 
-  ,_sendBytes     :: SendF m  -- ^ Physically sendind bytes to an address
+  ,_messagingOpSendBytes     :: SendF m  -- ^ Physically sendind bytes to an address
   }
 
 -- | Wait on the 'Out'put response in 'm' to a sent 'Command' with 'In'put.
@@ -85,13 +87,13 @@ type RouteF m = forall c. (Typeable (Out c)) => Command c -> Resp c -> m ()
 type SendF  m = Addr -> ByteString -> m ()
 
 -- | A Possible logging function in 'm'.
-type Logging m = Maybe (String -> m ())
+type LoggingOp m = Maybe (String -> m ())
 
 -- | Operations on a routing table
-data RoutingTable m = RoutingTable
-    { _rtInsert :: RTInsertF m -- ^ Insert a new 'Addr'ess
-    , _rtLookup :: RTLookupF m -- ^ Lookup an 'Addr'ess
-    , _rtKSize  :: m Int       -- ^ Query the bucket size/ how many neighbours we expect to get back
+data RoutingTableOp m = RoutingTableOp
+    { _routingTableOpInsert :: RTInsertF m -- ^ Insert a new 'Addr'ess
+    , _routingTableOpLookup :: RTLookupF m -- ^ Lookup an 'Addr'ess
+    , _routingTableOpKSize  :: m Int       -- ^ Query the bucket size/ how many neighbours we expect to get back
     }
 
 -- | Insert an 'Addr'ess at a 'Time'. Ping Questionable Contacts with the given function if needed.
@@ -101,9 +103,9 @@ type RTInsertF m = Addr -> Time -> (Addr -> DHT m Bool) -> DHT m ()
 type RTLookupF m = Addr -> ID -> Time -> m ([Contact],Maybe Contact)
 
 -- | Operations on value storage
-data ValueStore m = ValueStore
-    { _valInsert :: ValInsertF m -- ^ Insert a value in the storage
-    , _valLookup :: ValLookupF m -- ^ Lookup a value in the storage
+data ValueStoreOp m = ValueStoreOp
+    { _valueStoreOpInsert :: ValInsertF m -- ^ Insert a value in the storage
+    , _valueStoreOpLookup :: ValLookupF m -- ^ Lookup a value in the storage
     }
 
 -- | Insert with a ByteString value with the given ID in 'm'.
@@ -112,19 +114,27 @@ type ValInsertF m = ID -> ByteString -> m ()
 -- | Lookup a ByteString value with a given ID in 'm'.
 type ValLookupF m = ID -> m (Maybe ByteString)
 
+-- | The operations we require to implement a DHT
+data DHTOp m = DHTOp
+  {_dhtOpTimeOp         :: m Time           -- ^ Determine the current time
+  ,_dhtOpRandomIntOp    :: m Int            -- ^ Generate a random Int
+  ,_dhtOpMessagingOp    :: MessagingOp m    -- ^ Operations for sending, waiting and routing messages
+  ,_dhtOpRoutingTableOp :: RoutingTableOp m -- ^ Operations for tracking routing contacts
+  ,_dhtOpValueStoreOp   :: ValueStoreOp m   -- ^ Operations for value storage and retrieval
+  ,_dhtOpLoggingOp      :: LoggingOp m      -- ^ Operations for logging output
+  }
+
 -- | DHT configuration
 data DHTConfig m = DHTConfig
-    {_time         :: m Time         -- ^ The current time
-    ,_randomInt    :: m Int          -- ^ A random int
+  {_dhtConfigOps  :: DHTOp m -- ^ The operations we require to implement the DHT
+  ,_dhtConfigAddr :: Addr    -- ^ Our address
+  }
 
-    ,_messaging    :: Messaging m    -- ^ A messaging system for sending, waiting and rouing messages.
-    ,_routingTable :: RoutingTable m -- ^ A routing table system for tracking 'Contact's.
-    ,_valueStore   :: ValueStore m   -- ^ A value storage and retrieval system.
-    ,_logging      :: Logging m      -- ^ A possible logging function
-
-    ,_askOurID     :: ID             -- ^ Our ID
-    ,_askOurAddr   :: Addr           -- ^ Our Addr
-    }
+-- |
+data DHTState m = DHTState
+  {_dhtStateConfig :: DHTConfig m -- ^ User configuration contains injected subsystems
+  ,_dhtStateID     :: ID          -- ^ The ID we calculate for ourself
+  }
 
 {- The DHT type, instances and primitive operations -}
 
@@ -135,7 +145,7 @@ data DHTError
 
 -- | A computation in the context of some DHTConfig executes in 'm' and either
 -- shortcircuits to a DHTError (with the monad instance) or returns an 'a'.
-newtype DHT m a = DHT {_runDHT :: DHTConfig m -> m (Either DHTError a)}
+newtype DHT m a = DHT {_runDHT :: DHTState m -> m (Either DHTError a)}
 
 instance Monad m => Monad (DHT m) where
   return a = DHT $ \_ -> return $ Right a
@@ -171,31 +181,31 @@ joinDHT = (>>= liftDHT)
 
 -- | Ask for the DHTConfig
 ask :: Monad m => DHT m (DHTConfig m)
-ask = DHT succeed
+ask = DHT (succeed . _dhtStateConfig)
 
 -- | Our own ID
 askOurID :: Monad m => DHT m ID
-askOurID = liftM _askOurID ask
+askOurID = DHT (succeed . _dhtStateID)
 
 -- | Our own address
 askOurAddr :: Monad m => DHT m Addr
-askOurAddr = liftM _askOurAddr ask
+askOurAddr = _dhtConfigAddr <$> ask
 
 -- ask for the messaging system
-askMessaging :: (Monad m,Functor m) => DHT m (Messaging m)
-askMessaging = _messaging <$> ask
+askMessagingOp :: (Monad m,Functor m) => DHT m (MessagingOp m)
+askMessagingOp = _dhtOpMessagingOp . _dhtConfigOps <$> ask
 
 -- ask for the routing table system
-askRoutingTable :: (Monad m,Functor m) => DHT m (RoutingTable m)
-askRoutingTable = _routingTable <$> ask
+askRoutingTableOp :: (Monad m,Functor m) => DHT m (RoutingTableOp m)
+askRoutingTableOp = _dhtOpRoutingTableOp . _dhtConfigOps <$> ask
 
 -- ask for the value storage systen
-askValueStore :: (Monad m,Functor m) => DHT m (ValueStore m)
-askValueStore = _valueStore <$> ask
+askValueStoreOp :: (Monad m,Functor m) => DHT m (ValueStoreOp m)
+askValueStoreOp = _dhtOpValueStoreOp . _dhtConfigOps <$> ask
 
 -- ask for the logging system
-askLogging :: (Monad m,Functor m) => DHT m (Logging m)
-askLogging = _logging <$> ask
+askLoggingOp :: (Monad m,Functor m) => DHT m (LoggingOp m)
+askLoggingOp = _dhtOpLoggingOp . _dhtConfigOps <$> ask
 
 
 -- | End a DHT with a DHTError.
@@ -213,24 +223,24 @@ invalidResponse = dhtError EInvalidResponse
 
 -- | The current time
 timeNow :: (Monad m,Functor m) => DHT m Time
-timeNow = ask >>= liftDHT . _time
+timeNow = ask >>= liftDHT . _dhtOpTimeOp . _dhtConfigOps
 
 -- | A random Int
 randomInt :: (Monad m,Functor m) => DHT m Int
-randomInt = ask >>= liftDHT . _randomInt
+randomInt = ask >>= liftDHT . _dhtOpRandomIntOp . _dhtConfigOps
 
 
 -- wait for a response to a command
 waitResponse :: (Monad m,Functor m,Typeable (Out c)) => Command c -> In c -> DHT m (Out c)
-waitResponse cmd i = askMessaging >>= \msgsys -> liftDHT $ _waitResponse msgsys cmd i
+waitResponse cmd i = askMessagingOp >>= \msgsys -> liftDHT $ _messagingOpWaitResponse msgsys cmd i
 
 -- route a response to the correct waiing location
 routeResponse :: (Monad m,Functor m,Typeable (Out c)) => Command c -> Resp c -> DHT m ()
-routeResponse cmd resp = askMessaging >>= \msgsys -> liftDHT $ _routeResponse msgsys cmd resp
+routeResponse cmd resp = askMessagingOp >>= \msgsys -> liftDHT $ _messagingOpRouteResponse msgsys cmd resp
 
 -- send a bytestring to an address
 sendBytes :: (Monad m,Functor m) => Addr -> ByteString -> DHT m ()
-sendBytes tAddr bs = askMessaging >>= \msgsys -> liftDHT $ _sendBytes msgsys tAddr bs
+sendBytes tAddr bs = askMessagingOp >>= \msgsys -> liftDHT $ _messagingOpSendBytes msgsys tAddr bs
 
 -- Send a (request/ response) Message, waiting for a response if we sent a request
 -- and returning immediately if we sent a response.
@@ -259,16 +269,16 @@ sendMessage tAddr msg = do
 insertAddr :: (Monad m,Functor m) => Addr -> DHT m ()
 insertAddr cAddr = do
   now          <- timeNow
-  routingTable <- askRoutingTable
-  _rtInsert routingTable cAddr now (\addr -> ping addr >> return True)
+  routingTable <- askRoutingTableOp
+  _routingTableOpInsert routingTable cAddr now (\addr -> ping addr >> return True)
 
 -- insert multiple contact addresses into the routing table, all at the same time
 -- LOCAL
 insertAddrs :: (Monad m,Functor m) => [Addr] -> DHT m ()
 insertAddrs cAddrs = do
   now          <- timeNow
-  routingTable <- askRoutingTable
-  let rtInsert = _rtInsert routingTable
+  routingTable <- askRoutingTableOp
+  let rtInsert = _routingTableOpInsert routingTable
   mapM_ (\cAddr -> rtInsert cAddr now (\addr -> ping addr >> return True)) cAddrs
 
 -- attempt lookup of a contact with the given ID. Also return the k closest Contacts
@@ -276,8 +286,8 @@ insertAddrs cAddrs = do
 lookupContact :: (Monad m,Functor m) => Addr -> ID -> DHT m ([Contact],Maybe Contact)
 lookupContact enquirerAddr targetID = do
   now          <- timeNow
-  routingTable <- askRoutingTable
-  let rtLookup = _rtLookup routingTable
+  routingTable <- askRoutingTableOp
+  let rtLookup = _routingTableOpLookup routingTable
   liftDHT $ rtLookup enquirerAddr targetID now
 
 
@@ -286,21 +296,21 @@ lookupContact enquirerAddr targetID = do
 -- - The number of neighbour contacts returned from queries if possible
 -- Currently (undesirably...) doubles as the number of bits in ID's.
 kSize :: (Monad m,Functor m) => DHT m Int
-kSize = askRoutingTable >>= liftDHT . _rtKSize
+kSize = askRoutingTableOp >>= liftDHT . _routingTableOpKSize
 
 
 -- insert a value into the local storage ONLY
 insertValue :: (Monad m,Functor m) => ID -> ByteString -> DHT m ()
-insertValue vID v = askValueStore >>= \valStore -> liftDHT $ _valInsert valStore vID v
+insertValue vID v = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpInsert valStore vID v
 
 -- lookup a value from the local storage ONLY
 lookupValue :: (Monad m,Functor m) => ID -> DHT m (Maybe ByteString)
-lookupValue vID = askValueStore >>= \valStore -> liftDHT $ _valLookup valStore vID
+lookupValue vID = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpLookup valStore vID
 
 
 -- | Log a string if the logging system is enabled.
 lg :: (Monad m,Functor m) => String -> DHT m ()
-lg s = askLogging >>= liftDHT . maybe (return ()) ($ s)
+lg s = askLoggingOp >>= liftDHT . maybe (return ()) ($ s)
 
 
 
@@ -416,20 +426,22 @@ runDHT :: (Monad m,Functor m)
        -> Int
        -> m Time
        -> m Int
-       -> Messaging m
-       -> RoutingTable m
-       -> ValueStore m
-       -> Logging m
+       -> MessagingOp m
+       -> RoutingTableOp m
+       -> ValueStoreOp m
+       -> LoggingOp m
        -> Maybe Addr
        -> DHT m a
        -> m (Either DHTError a)
 runDHT ourAddr size timeF randF msgsys routingTable valStore logging mBootstrapAddr dht =
-  let ourID    = mkID ourAddr size
-      config   = DHTConfig timeF randF msgsys routingTable valStore logging ourID ourAddr
+  let ops      = DHTOp timeF randF msgsys routingTable valStore logging
+      config   = DHTConfig ops ourAddr
+      ourID    = mkID ourAddr size
+      state    = DHTState config ourID
       dht'     = case mBootstrapAddr of
                      Nothing -> dht
                      Just bootstrapAddr -> bootstrap bootstrapAddr >> dht
-     in _runDHT dht' config
+     in _runDHT dht' state
 
 -- | Bootstrap against a bootstrap address.
 bootstrap :: (Monad m,Functor m) => Addr -> DHT m ()
