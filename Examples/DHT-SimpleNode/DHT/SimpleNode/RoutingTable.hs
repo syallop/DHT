@@ -38,7 +38,7 @@ rtLookup rtState enquirerAddr targetID now = do
   putMVar rtState rt'
   return res
 
-newSimpleRoutingTable :: Int -> ID -> Time -> IO (RoutingTableOp IO)
+newSimpleRoutingTable :: Int -> ID -> Time -> IO (RoutingTableOp DHT IO)
 newSimpleRoutingTable size ourID now = mkRoutingTable <$> newRTState
   where
     mkRoutingTable rtState = RoutingTableOp (rtInsert rtState) (rtLookup rtState) (pure size)

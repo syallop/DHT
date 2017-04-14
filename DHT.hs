@@ -66,74 +66,19 @@ import DHT.ID
 import DHT.Message
 import DHT.Types
 
+import DHT.Op
+
 {- DHT configuration components -}
-
--- | Messaging operations.
--- In some 'm' provide functions for:
-data MessagingOp m = MessagingOp
-  {_messagingOpWaitResponse  :: WaitF m  -- ^ Waiting for a response to a send message
-  ,_messagingOpRouteResponse :: RouteF m -- ^ Routing a recieved response to a waiter
-
-  ,_messagingOpSendBytes     :: SendF m  -- ^ Physically sendind bytes to an address
-  }
-
--- | Wait on the 'Out'put response in 'm' to a sent 'Command' with 'In'put.
-type WaitF  m = forall c. Typeable (Out c) => Command c -> In c -> m (Out c)
-
--- | Route a 'Resp'onse to a 'Command' to a waiter in 'm'.
-type RouteF m = forall c. (Typeable (Out c)) => Command c -> Resp c -> m ()
-
--- | Send bytes to an 'Addr'ess in 'm'.
-type SendF  m = Addr -> ByteString -> m ()
-
--- | A Possible logging function in 'm'.
-type LoggingOp m = Maybe (String -> m ())
-
--- | Operations on a routing table
-data RoutingTableOp m = RoutingTableOp
-    { _routingTableOpInsert :: RTInsertF m -- ^ Insert a new 'Addr'ess
-    , _routingTableOpLookup :: RTLookupF m -- ^ Lookup an 'Addr'ess
-    , _routingTableOpKSize  :: m Int       -- ^ Query the bucket size/ how many neighbours we expect to get back
-    }
-
--- | Insert an 'Addr'ess at a 'Time'. Ping Questionable Contacts with the given function if needed.
-type RTInsertF m = Addr -> Time -> (Addr -> DHT m Bool) -> DHT m ()
-
--- | Lookup an 'Addr'ess and neighbouring Contacts to an 'ID' in 'm'.
-type RTLookupF m = Addr -> ID -> Time -> m ([Contact],Maybe Contact)
-
--- | Operations on value storage
-data ValueStoreOp m = ValueStoreOp
-    { _valueStoreOpInsert :: ValInsertF m -- ^ Insert a value in the storage
-    , _valueStoreOpLookup :: ValLookupF m -- ^ Lookup a value in the storage
-    }
-
--- | Insert with a ByteString value with the given ID in 'm'.
-type ValInsertF m = ID -> ByteString -> m ()
-
--- | Lookup a ByteString value with a given ID in 'm'.
-type ValLookupF m = ID -> m (Maybe ByteString)
-
--- | The operations we require to implement a DHT
-data DHTOp m = DHTOp
-  {_dhtOpTimeOp         :: m Time           -- ^ Determine the current time
-  ,_dhtOpRandomIntOp    :: m Int            -- ^ Generate a random Int
-  ,_dhtOpMessagingOp    :: MessagingOp m    -- ^ Operations for sending, waiting and routing messages
-  ,_dhtOpRoutingTableOp :: RoutingTableOp m -- ^ Operations for tracking routing contacts
-  ,_dhtOpValueStoreOp   :: ValueStoreOp m   -- ^ Operations for value storage and retrieval
-  ,_dhtOpLoggingOp      :: LoggingOp m      -- ^ Operations for logging output
-  }
-
 -- | DHT configuration
-data DHTConfig m = DHTConfig
-  {_dhtConfigOps  :: DHTOp m -- ^ The operations we require to implement the DHT
-  ,_dhtConfigAddr :: Addr    -- ^ Our address
+data DHTConfig dht m = DHTConfig
+  {_dhtConfigOps  :: DHTOp dht m -- ^ The operations we require to implement the DHT
+  ,_dhtConfigAddr :: Addr        -- ^ Our address
   }
 
 -- |
-data DHTState m = DHTState
-  {_dhtStateConfig :: DHTConfig m -- ^ User configuration contains injected subsystems
-  ,_dhtStateID     :: ID          -- ^ The ID we calculate for ourself
+data DHTState dht m = DHTState
+  {_dhtStateConfig :: DHTConfig dht m -- ^ User configuration contains injected subsystems
+  ,_dhtStateID     :: ID              -- ^ The ID we calculate for ourself
   }
 
 {- The DHT type, instances and primitive operations -}
@@ -145,7 +90,7 @@ data DHTError
 
 -- | A computation in the context of some DHTConfig executes in 'm' and either
 -- shortcircuits to a DHTError (with the monad instance) or returns an 'a'.
-newtype DHT m a = DHT {_runDHT :: DHTState m -> m (Either DHTError a)}
+newtype DHT m a = DHT {_runDHT :: DHTState DHT m -> m (Either DHTError a)}
 
 instance Monad m => Monad (DHT m) where
   return a = DHT $ \_ -> return $ Right a
@@ -180,7 +125,7 @@ joinDHT :: (Monad m,Functor m) => DHT m (m a) -> DHT m a
 joinDHT = (>>= liftDHT)
 
 -- | Ask for the DHTConfig
-ask :: Monad m => DHT m (DHTConfig m)
+ask :: Monad m => DHT m (DHTConfig DHT m)
 ask = DHT (succeed . _dhtStateConfig)
 
 -- | Our own ID
@@ -196,7 +141,7 @@ askMessagingOp :: (Monad m,Functor m) => DHT m (MessagingOp m)
 askMessagingOp = _dhtOpMessagingOp . _dhtConfigOps <$> ask
 
 -- ask for the routing table system
-askRoutingTableOp :: (Monad m,Functor m) => DHT m (RoutingTableOp m)
+askRoutingTableOp :: (Monad m,Functor m) => DHT m (RoutingTableOp DHT m)
 askRoutingTableOp = _dhtOpRoutingTableOp . _dhtConfigOps <$> ask
 
 -- ask for the value storage systen
@@ -427,7 +372,7 @@ runDHT :: (Monad m,Functor m)
        -> m Time
        -> m Int
        -> MessagingOp m
-       -> RoutingTableOp m
+       -> RoutingTableOp DHT m
        -> ValueStoreOp m
        -> LoggingOp m
        -> Maybe Addr

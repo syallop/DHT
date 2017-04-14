@@ -21,6 +21,10 @@ library
                      , DHT.Contact
                      , DHT.ID
                      , DHT.Message
+                     , DHT.Op
+                     , DHT.Op.Messaging
+                     , DHT.Op.RoutingTable
+                     , DHT.Op.ValueStore
                      , DHT.Routing
                      , DHT.Types
   -- other-modules:
