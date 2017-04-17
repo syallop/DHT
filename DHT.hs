@@ -197,7 +197,6 @@ sendMessage :: (Monad m,Functor m
                )
             => Addr -> Message t r c -> DHT m r
 sendMessage tAddr msg = do
-  insertAddr tAddr
   let msgBs = encodeMessage msg
   case msg of
     -- Responses are simply sent
@@ -247,11 +246,11 @@ kSize = askRoutingTableOp >>= liftDHT . _routingTableOpKSize
 
 -- insert a value into the local storage ONLY
 insertValue :: (Monad m,Functor m) => ID -> ByteString -> DHT m ()
-insertValue vID v = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpInsert valStore vID v
+insertValue keyID val = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpInsert valStore keyID val
 
 -- lookup a value from the local storage ONLY
 lookupValue :: (Monad m,Functor m) => ID -> DHT m (Maybe ByteString)
-lookupValue vID = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpLookup valStore vID
+lookupValue keyID = askValueStoreOp >>= \valStore -> liftDHT $ _valueStoreOpLookup valStore keyID
 
 
 -- | Log a string if the logging system is enabled.
@@ -277,16 +276,16 @@ pingThis i tAddr = do
   unless (i == j) invalidResponse
 
 -- | Store a ByteString value at the appropriate place(s) in the DHT.
-store :: (Monad m,Functor m) => ByteString -> DHT m ID
-store v = do
+store :: (Monad m,Functor m) => ByteString -> ByteString -> DHT m ID
+store key val = do
   size    <- kSize
   ourAddr <- askOurAddr
-  let vID = mkID v size
-  res     <- lookupContact ourAddr vID
+  let keyID = mkID key size
+  res     <- lookupContact ourAddr keyID
   let cts  = case res of
                (cs,Just c)  -> c:cs
                (cs,Nothing) -> cs
-  _ids <- mapM (storeAt v . _addr) cts
+  _ids <- mapM (storeAt keyID val . _addr) cts
 
   -- TODO: Although its likely the messaging system wont even return to us non-matching ID's
   -- it is permitted to act that way. Therefore we should check that all ID's are the same (and
@@ -294,16 +293,18 @@ store v = do
   --
   -- TODO: We may have an empty list of targets to store at, perhaps it should be indicated/ an error
   -- if we don't even attempt to store anything?
-  return vID
+  return keyID
 
 -- Store a ByteString value at the given 'Addr'ess.
-storeAt :: (Monad m,Functor m) => ByteString -> Addr -> DHT m ID
-storeAt v tAddr = do
-  vID <- sendMessage tAddr $ StoreRequestMsg v
+storeAt :: (Monad m,Functor m) => ID -> ByteString -> Addr -> DHT m ID
+storeAt keyID val tAddr = do
+  -- actualKeyID should be equal to the keyId we requested storage at
+  let msg = StoreRequestMsg keyID val
+  actualKeyID <- sendMessage tAddr msg
 
   -- TODO: Cache where we stored the value for faster retrieval?
   insertAddr tAddr
-  return vID
+  return actualKeyID
 
 -- | Attempt to find the 'Contact' with the given 'ID' alongwith a list of the
 -- closest neighbour Contacts. Searches the global DHT if necessary.
@@ -428,47 +429,52 @@ quitDHT = return ()
 
 
 -- | Handle an incoming message which has been sent to us.
+-- The sender is potentially added to our routing table.
 handleMessage :: (Monad m,Functor m
                  ,Typeable (Out c)
+                 ,Show (Resp c)
                  )
               => Addr -> Message mt mr c -> DHT m ()
-handleMessage enquirerAddr msg = case msg of
+handleMessage enquirerAddr msg = do
+  insertAddr enquirerAddr
+  case msg of
 
-  -- Handle a request that we do something, and return the result
-  RequestMsg cmd cmdInput -> case cmd of
+    -- Handle a request that we do something, and return the result
+    RequestMsg cmd cmdInput -> case cmd of
 
-    -- Echo the ping back
-    Ping
-      -> sendMessage enquirerAddr $ PingResponseMsg cmdInput
+      -- Echo the ping back
+      Ping
+        -> sendMessage enquirerAddr $ PingResponseMsg cmdInput
 
-    -- Store the value in our hashmap and reply the values ID hash
-    Store
-      -> do k <- kSize
-            let vID = mkID cmdInput k
-            insertValue vID cmdInput
-            sendMessage enquirerAddr $ StoreResponseMsg vID
+      -- Store the value in our hashmap and reply the values ID hash
+      Store
+        -> do k <- kSize
+              let (keyID,val) = cmdInput
+              insertValue keyID val
+              sendMessage enquirerAddr $ StoreResponseMsg keyID
 
-    -- Lookup the requested contact ID locally
-    FindContact
-      -> do res <- lookupContact enquirerAddr cmdInput
-            sendMessage enquirerAddr $ FindContactResponseMsg cmdInput res
+      -- Lookup the requested contact ID locally
+      FindContact
+        -> do res <- lookupContact enquirerAddr cmdInput
+              sendMessage enquirerAddr $ FindContactResponseMsg cmdInput res
 
-    -- Lookup the requested value ID locally
-    FindValue
-      -> do mv <- lookupValue cmdInput
+      -- Lookup the requested value ID locally
+      FindValue
+        -> do mv <- lookupValue cmdInput
 
-            -- k-closest contact near to the value
-            res <- lookupContact enquirerAddr cmdInput
+              -- k-closest contact near to the value
+              res <- lookupContact enquirerAddr cmdInput
 
-            let nbs = case res of
-                        (ns,Nothing) -> ns
-                        (ns,Just n)  -> n:ns
+              let nbs = case res of
+                          (ns,Nothing) -> ns
+                          (ns,Just n)  -> n:ns
 
-            case mv of
-              Just v  -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Just v)
-              Nothing -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Nothing)
+              case mv of
+                Just v  -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Just v)
+                Nothing -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Nothing)
 
-  -- A response to a query we probably made. 'routeResponse' is delegated to
-  -- checking its actually in response to something we sent and routing it to wherever is waiting for the response
-  ResponseMsg cmd r -> routeResponse cmd r
+    -- A response to a query we probably made. 'routeResponse' is delegated to
+    -- checking its actually in response to something we sent and routing it to wherever is waiting for the response
+    ResponseMsg cmd r
+      -> routeResponse cmd r
 

@@ -51,6 +51,7 @@ import Data.Binary.Get
 import Data.Binary.Put
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Typeable
+import Data.String.Conv
 
 -- | A Message is a command either sent as a Request (along with its 'In'put, to a 'Target' and with an expected 'Out'put)
 -- or a sent Response to some issued Request (along with a 'Resp' value, to an Addr and with no output)
@@ -66,20 +67,19 @@ data Message mt mr c where
     ResponseMsg :: Command c -> Resp c
                 -> Message Addr       ()      c
 
-instance (Show (Command c),Show (In c),Show (Resp c)) => Show (Message mt mr c) where
-  show cmmnd = case cmmnd of
-    RequestMsg c i -> "Request " ++ show c ++ show i
-    ResponseMsg c resp -> "Response " ++ show c ++ show resp
+instance Show (Message mt mr c) where
+  show = showMessage
 
 showMessage :: Message mt mr c -> String
 showMessage msg = case msg of
-  RequestMsg cmd i -> show cmd ++ " " ++ case cmd of
+  RequestMsg cmd i -> "REQ " ++ show cmd ++ " " ++ case cmd of
     Ping        -> show i
-    Store       -> show i
+    Store       -> let (keyId,msg) = i
+                      in showBits keyId ++ ":" ++ toS msg
     FindContact -> showBits i
     FindValue   -> showBits i
 
-  ResponseMsg cmd resp -> case cmd of
+  ResponseMsg cmd resp -> "RESP " ++ show cmd ++ case cmd of
     Ping        -> show resp
     Store       -> showBits resp
     FindContact -> let (cID,(cs,mc)) = resp in showBits cID ++ " " ++ showContacts cs ++ maybe "" (\c -> " " ++ showContact c) mc
@@ -93,12 +93,12 @@ encodeMessage msg = runPut $ case msg of
 
 
 -- request conveniences
-pattern PingRequestMsg          i   = RequestMsg Ping        i
-pattern StoreRequestMsg         v   = RequestMsg Store       v
-pattern FindContactRequestMsg   cID = RequestMsg FindContact cID
-pattern FindContactAtRequestMsg cID = RequestMsg FindContact cID
-pattern FindValueRequestMsg     vID = RequestMsg FindValue   vID
-pattern FindValueAtRequestMsg   vID = RequestMsg FindValue   vID
+pattern PingRequestMsg          i       = RequestMsg Ping        i
+pattern StoreRequestMsg         kID val = RequestMsg Store (kID,val)
+pattern FindContactRequestMsg   cID     = RequestMsg FindContact cID
+pattern FindContactAtRequestMsg cID     = RequestMsg FindContact cID
+pattern FindValueRequestMsg     vID     = RequestMsg FindValue   vID
+pattern FindValueAtRequestMsg   vID     = RequestMsg FindValue   vID
 
 -- response conveniences
 pattern PingResponseMsg        i       = ResponseMsg Ping        i

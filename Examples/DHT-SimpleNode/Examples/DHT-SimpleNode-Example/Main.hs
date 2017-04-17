@@ -47,16 +47,20 @@ lgAt name str = do
 -- values, expecting them to be the same.
 testStore :: DHT IO ()
 testStore = do
-  let val0 = "Hello World"
-      val1 = "foobarbaz"
-  lgHere . toS $ "Storing two values: " <> val0 <>" and " <> val1
-  vID0  <- store val0
-  vID1  <- store val1
-  lgHere $ "The IDs of the two values are: " ++ showBits vID0 ++ " and " ++ showBits vID1
+  let key0 = "Hello"
+      val0 = "World!"
+
+      key1 = "foo"
+      val1 = "barbaz"
+
+  lgHere . toS $ "Storing two values: " <> key0<>":"<>val0<>" and " <> key1<>":"<>val1
+  keyID0  <- store key0 val0
+  keyID1  <- store key1 val1
+  lgHere $ "The IDs of the two keys are: " ++ showBits keyID0 ++ " and " ++ showBits keyID1
 
   lgHere "Looking up the two ID's to check they exist/ have the right value."
-  mVal0 <- findValue vID0
-  mVal1 <- findValue vID1
+  mVal0 <- findValue keyID0
+  mVal1 <- findValue keyID1
   responseValueIs mVal0 val0
   responseValueIs mVal1 val1
 
@@ -82,9 +86,9 @@ testStore = do
 -- We hope to retrieve their values.
 testLookup :: DHT IO ()
 testLookup = do
-  lgHere "We've been given the ID's for \"Hello World\" and \"foobarbaz\" out of band so we're going to lookup the values."
-  mVal0 <- findValue (mkID ("Hello World"::Lazy.ByteString) 8)
-  mVal1 <- findValue (mkID ("foobarbaz"::Lazy.ByteString) 8)
+  lgHere "Assuming values might have been stored by somebody else for \"Hello\" and \"foo\", lookup the values."
+  mVal0 <- findValue (mkID ("Hello"::Lazy.ByteString) 8)
+  mVal1 <- findValue (mkID ("foo"::Lazy.ByteString) 8)
   lgFindResponse mVal0
   lgFindResponse mVal1
   return ()
@@ -139,31 +143,38 @@ main = do
                 bootstrapAddr
                 Nothing
                 mLogging
-                $ lg "Creating bootstrap node." >> idle
-  delay 1
+                $ do lg "Creating bootstrap node."
+                     idle
 
   -- Test storing and retrieving a value
   forkVoid_ $ newSimpleNode
                 (Addr "127.0.0.1" 6472)
                 (Just bootstrapAddr)
                 mLogging
-                $ lg "Creating testStore node." >> testStore
-  delay 1
+                $ do liftDHT $ delay 1
+                     lg "Creating testStore node."
+                     testStore
+                     idle
 
   -- Test looking up a value WE didnt store
   forkVoid_ $ newSimpleNode
                 (Addr "127.0.0.1" 6473)
                 (Just bootstrapAddr)
                 mLogging
-                $ lg "Creating testLookup node." >> testLookup
-  delay 2
+                $ do lg "Creating testLookup node."
+                     liftDHT $ delay 5
+                     testLookup
+                     idle
 
   -- Test neighbour lookup
   forkVoid_ $ newSimpleNode
                 (Addr "127.0.0.1" 6474)
                 (Just bootstrapAddr)
                 mLogging
-                $ lg "Creating testNeighbours node." >> testNeighbours
+                $ do lg "Creating testNeighbours node."
+                     liftDHT $ delay 8
+                     testNeighbours
+                     idle
 
   delay 10
   return ()

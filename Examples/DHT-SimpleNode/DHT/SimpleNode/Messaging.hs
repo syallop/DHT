@@ -35,7 +35,10 @@ data MsgState = MsgState
   }
   -- TODO: These two state items need not be coupled together
 
-type MessagingState = MVar MsgState
+newtype MessagingState = MessagingState (MVar MsgState)
+
+modifyMessagingState :: MessagingState -> (MsgState -> IO (MsgState,a)) -> IO a
+modifyMessagingState (MessagingState msgState) f = modifyMVar msgState f
 
 -- | Create a new Messaging system which internally:
 -- - Sends messages to addresses via UDP, reusing sockets and encoded such that
@@ -43,23 +46,39 @@ type MessagingState = MVar MsgState
 -- - Routes and waits on messages using MVars and a notion of pattern matching (rather than, for
 -- example including 'unique' tokens in sent messages).
 newSimpleMessaging :: Int -> (Int,Port) -> IO (MessagingOp IO)
-newSimpleMessaging size (maxPortLength,ourPort) = mkMessaging <$> newMessagingState
+newSimpleMessaging size (maxPortLength,ourPort) = do
+  messagingState <- newMessagingState
+  return $ mkMessaging messagingState
   where
+    mkMessaging :: MessagingState -> MessagingOp IO
     mkMessaging msgState = MessagingOp (waitF msgState size) (routeF msgState) (sendF msgState (maxPortLength,ourPort))
-    newMessagingState = newMVar $ MsgState Map.empty Map.empty
+
+
+    newMessagingState :: IO MessagingState
+    newMessagingState = do m <- newMVar $ MsgState Map.empty Map.empty
+                           return $ MessagingState m
+
 -- Physically send bytes to the given address.
 -- Reuse sockets if we've contacted the address before.
 sendF :: MessagingState -> (Int, Port) -> Addr -> Lazy.ByteString -> IO ()
-sendF msgState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ do
-  sock   <- initialiseSocket
+sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ modifyMessagingState messagingState $ \state -> do
+  (sock,state') <- initialiseSocket state
+
   nBytes <- Strict.send sock (padPort ourPort `Strict.append` (Lazy.toStrict bs))
-  return ()
+
+  -- TODO:
+  {-if fromIntegral nBytes == (fromIntegral $ Lazy.length bs) + (fromIntegral $ Strict.length (padPort ourPort))-}
+    {-then return ()-}
+    {-else fail "SENT TOO LITTLE BYTES"-}
+
+  return (state',())
   where
     -- If we dont know of an address, open a new socket and cache it, otherwise return the one in use.
-    initialiseSocket = do
-      state <- takeMVar msgState
+    initialiseSocket state = do
       case Map.lookup addr $ _msgStateSocketsOut state of
-          Just sock -> putMVar msgState state >> return sock
+          Just sock
+            -> return (sock,state)
+
           Nothing
             -> do let ipv4     = AF_INET
                       udp      = 17
@@ -69,8 +88,7 @@ sendF msgState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ 
                   sock <- socket ipv4 Datagram udp
                   connect sock $ SockAddrInet udpPort inetAddr
 
-                  putMVar msgState (state{_msgStateSocketsOut = Map.insert addr sock $ _msgStateSocketsOut state})
-                  return sock
+                  return (sock, state{_msgStateSocketsOut = Map.insert addr sock $ _msgStateSocketsOut state})
 
     -- given a Port (represented by an Int), pad it with the appropriate number of leading zeros
     -- such that it is as long as the provided 'maxPortLength'
@@ -84,37 +102,43 @@ sendF msgState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ 
 -- Wait for the response to a Command that has been sent with some input and return the response
 -- when recieved from 'routeF'.
 waitF :: MessagingState -> Int -> WaitF IO
-waitF msgState size cmd input = do
-  state@(MsgState replyMap _) <- takeMVar msgState
-  waitMVar :: MVar SomeOut <- newEmptyMVar
-  let pattern   = respPat size cmd input
-      replyMap' = Map.insert pattern waitMVar replyMap
-  putMVar msgState (state{_msgStateReplyMap = replyMap'})
+waitF messagingState size cmd input = do
+  waitMVar <- modifyMessagingState messagingState $ \msgState -> do
+    let state@(MsgState replyMap _) = msgState
+    waitMVar :: MVar SomeOut <- newEmptyMVar
+    let pattern   = respPat size cmd input
+        replyMap' = Map.insert pattern waitMVar replyMap
+    return (state{_msgStateReplyMap = replyMap'},waitMVar)
 
   (SomeOut cmd o) <- takeMVar waitMVar
   case cast o of
       Nothing -> error "Invalid cast"
-      Just o' -> return o'
+      Just o' -> return (o')
 
 -- Route a response to a command to where it is being waited for.
 routeF :: MessagingState -> RouteF IO
-routeF msgState cmd resp = do
-  let (pattern,out) = disassemble cmd resp
+routeF messagingState cmd resp = do
+  mRespToPut <- modifyMessagingState messagingState $ \msgState -> do
+      let state@(MsgState replyMap _) = msgState
+          (pattern,out) = disassemble cmd resp
 
-  state@(MsgState replyMap _) <- takeMVar msgState
+      case Map.lookup pattern replyMap of
 
-  case Map.lookup pattern replyMap of
+          -- TODO: We've been passed a response to something that isnt being waited on.
+          -- Perhaps this should be indicated instead of just silently dropped.
+          Nothing
+            -> return (state{_msgStateReplyMap=replyMap},Nothing)
 
-      -- TODO: We've been passed a response to something that isnt being waited on.
-      -- Perhaps this should be indicated instead of just silently dropped.
-      Nothing
-        -> do putMVar msgState (state{_msgStateReplyMap=replyMap})
-              return ()
+          Just waitMVar
+            -> do let replyMap' = Map.delete pattern replyMap
+                  return (state{_msgStateReplyMap=replyMap'},Just (waitMVar,(SomeOut cmd out)))
 
-      Just waitMVar
-        -> do let replyMap' = Map.delete pattern replyMap
-              putMVar waitMVar (SomeOut cmd out)
-              putMVar msgState (state{_msgStateReplyMap=replyMap'})
+  case mRespToPut of
+    Nothing
+      -> return ()
+
+    Just (waitMVar,someOut)
+      -> putMVar waitMVar someOut
 
 
 data SomeOut = forall c. Typeable (Out c) => SomeOut (Command c) (Out c)
@@ -168,11 +192,11 @@ respPat size cmd input = case (cmd,input) of
   (Ping,i)
     -> RespPat cmd i
 
-  (Store,bs)
-    -> RespPat cmd (mkID bs size)
+  (Store,(keyId,valBs))
+    -> RespPat cmd keyId
 
-  (FindValue, vID)
-    -> RespPat cmd vID
+  (FindValue, keyID)
+    -> RespPat cmd keyID
 
   (FindContact, nID)
     -> RespPat cmd nID
@@ -183,8 +207,8 @@ disassemble cmd resp = case (cmd,resp) of
   (Ping,i)
     -> (RespPat cmd i,i)
 
-  (Store,vID)
-    -> (RespPat cmd vID,vID)
+  (Store,keyID)
+    -> (RespPat cmd keyID,keyID)
 
   (FindValue, (vID,res))
     -> (RespPat cmd vID,res)

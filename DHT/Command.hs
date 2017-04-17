@@ -86,10 +86,10 @@ type family Target (cmd :: CMD) where
 
 -- | A 'CMD' has an input when sent.
 type family In (cmd :: CMD) where
-    In 'PING        = Int
-    In 'STORE       = ByteString
-    In 'FINDVALUE   = ID
-    In 'FINDCONTACT = ID
+    In 'PING        = Int             -- ^ Integer to be pinged
+    In 'STORE       = (ID,ByteString) -- ^ Store a ByteString at an ID
+    In 'FINDVALUE   = ID              -- ^ Find the value corresponding to an ID
+    In 'FINDCONTACT = ID              -- ^ Find a contact, corresponding to an ID
 
 -- | A 'CMD@ has an expected output type when received.
 type family Out (cmd :: CMD) where
