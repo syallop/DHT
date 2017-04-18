@@ -28,12 +28,12 @@ In the DHT-SimpleNode example package:
 ## Commands
 The core exported DHT commands are:
 
-| Command     | Type                                       | Meaning                                                                              |
-| ----------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
-| ping        | `Addr -> DHT m ()`                         | Test a DHT replies with the same ping’d int                                          |
-| store       | `ByteString -> DHT m ID`                   | Store a `ByteString` value at the k-nearest places, returning an ID                  |
-| findValue   | `ID -> DHT m ([Contact],Maybe ByteString)` | Retrieve a stored ByteString value with the given ID                                 |
-| findContact | `ID -> DHT m ([Contact],Maybe Contact)`    | Attempt to find the contact with the given ID. Also produce the k-nearest neighbours |
+| Command     | Type                                       | Meaning                                                                                                     |
+| ----------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| ping        | `Addr -> DHT m ()`                         | Test a DHT replies with the same ping’d int                                                                 |
+| store       | `ByteString -> ByteString -> DHT m ID`     | Against a `ByteString` key, store a `ByteString` value at the k-nearest places, returning the ID of the Key |
+| findValue   | `ID -> DHT m ([Contact],Maybe ByteString)` | Retrieve a stored ByteString value with the given ID                                                        |
+| findContact | `ID -> DHT m ([Contact],Maybe Contact)`    | Attempt to find the contact with the given ID. Also produce the k-nearest neighbours                        |
 
 Programs can be built by monadically chaining these commands E.G.
 ```haskell
@@ -41,7 +41,7 @@ Programs can be built by monadically chaining these commands E.G.
 dht :: DHT m ()
 dht = do
     ping (Addr “127.0.0.1” 1234)
-    helloID     <- store “Hello World!”
+    helloID     <- store "Hello" “ World!”
     (cs,mHello) <- findValue helloID
     ...
     return ()
@@ -60,10 +60,10 @@ runDHT
   -> Int                     -- ^ Size of IDs
   -> m Time                  -- ^ Current time
   -> m Int                   -- ^ Random Int
-  -> Messaging m             -- ^ Send Bytes, wait on sent commands and route received commands.
-  -> RoutingTable m          -- ^ Insert and lookup of (some) known addresses
-  -> ValueStore m            -- ^ Store and retrieve values by ID
-  -> Logging m               -- ^ How and whether to log output
+  -> MessagingOp m           -- ^ Send Bytes, wait on sent commands and route received commands.
+  -> RoutingTableOp m        -- ^ Insert and lookup of (some) known addresses
+  -> ValueStoreOp m          -- ^ Store and retrieve values by ID
+  -> LoggingOp m             -- ^ How and whether to log output
   -> Maybe Addr              -- ^ Possible bootstrap address
   -> DHT m a                 -- ^ Computation to run
   -> m (Either DHTError a)   -- ^ Error or result in some Monad ‘m’.
@@ -78,6 +78,7 @@ The larger subsystems are responsible for:
 | ValueStore   | <ul> <li>Storage and retrieval of stored ByteStrings associated to an ID</li></ul>                                                                                                                          |
 | Logging      | <ul> <li>Whether and how to log given Strings</li> </ul>                                                                                                                                                    |
 
+Imlement these subsystems by importing `DHT.Op.SUBSYSTEM`.
 Some simple example implementations are found in the DHT-SimpleNode example, all of which use IO as the base ‘m’:
 
 | Module                      | Exports                                                                 | Description                                                                                                                                                                                                                    |
@@ -106,11 +107,11 @@ newSimpleNode (Addr “192.168.0.1” 6470) Nothing Nothing $ forever $ threadDe
 -- A node executing on 192.168.0.2 which stores a value (possibly at 192.168.0.1)
 -- and instantly retrieves it. Hopefully.
 newSimpleNode (Addr “192.168.0.2” 6470) (Just $ Addr “192.168.0.1) Nothing $ do
-    id       <- store “Hello World!”
+    id       <- store “Hello" " World!”
     (_,mStr) <- findValue id
     putStrLn $ case mStr of
-        Just “Hello World!” -> “Success!”
-        Just _              -> “We’re being lied to or... hash collision?”
-        Nothing             -> “We can’t find it. Blame the hardware/ network!”
+        Just “ World!” -> “Success!”
+        Just _         -> “We’re being lied to or... hash collision?”
+        Nothing        -> “We can’t find it. Blame the hardware/ network!”
 ```
 

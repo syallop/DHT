@@ -36,11 +36,11 @@ newSimpleNode (Addr “192.168.0.1” 6470) Nothing Nothing $ forever $ threadDe
 -- A node executing on 192.168.0.2 which stores a value (possibly at 192.168.0.1)
 -- and instantly retrieves it. Hopefully.
 newSimpleNode (Addr “192.168.0.2” 6470) (Just $ Addr “192.168.0.1) Nothing $ do
-    id       <- store “Hello World!”
+    id       <- store “Hello" " World!”
     (_,mStr) <- findValue id
     putStrLn $ case mStr of
-        Just “Hello World!” -> “Success!”
-        Just _              -> “We’re being lied to or... hash collision?”
-        Nothing             -> “We can’t find it. Blame the hardware/ network!”
+        Just “ World!” -> “Success!”
+        Just _         -> “We’re being lied to or... hash collision?”
+        Nothing        -> “We can’t find it. Blame the hardware/ network!”
 ```
 
