@@ -1,5 +1,5 @@
 name:                DHT-SimpleNode
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            A simple concrete implementation of the DHT package.
 description:         Makes simple choices for instantiating a DHT node using the
                      DHT API. Particularly uses: UDP, MVars, DHT.Routing and

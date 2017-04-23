@@ -1,5 +1,5 @@
 name:                DHT-SimpleNode-Example
-version:             0.2.0.0
+version:             0.2.1.0
 synopsis:            Example of using DHT-SimpleNode (which is in turn an example of instantiating DHT)
 description:         Run several DHT.SimpleNode's (which makes the choice of using UDP,MVars,DHT.Routing and in memory Maps to store data)
                      to test storing and looking up data and neighbours.
