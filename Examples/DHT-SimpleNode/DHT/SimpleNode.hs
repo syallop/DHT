@@ -40,7 +40,7 @@ mkSimpleNodeConfig :: Addr
                    -> IO (DHTConfig DHT IO)
 mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
   now          <- timeF
-  routingTable <- newSimpleRoutingTable hashSize ourID now
+  routingTable <- newSimpleRoutingTable maxBucketSize ourID now hashSize
   valueStore   <- newSimpleValueStore
   messaging    <- newSimpleMessaging hashSize (maxPortLength,ourPort)
 
@@ -63,6 +63,8 @@ mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
     ourID = mkID ourAddr hashSize
 
     maxPortLength = 5
+
+    maxBucketSize = 8
 
 -- | Start a new node with some configuration.
 -- - Will handle incoming messages for the duration of the given program.

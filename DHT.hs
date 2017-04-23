@@ -41,6 +41,8 @@ module DHT
   -- *** Query the local state
   ,askOurID
   ,askOurAddr
+  ,askHashSize
+  ,askBootstrapAddr
   ,kSize
   ,lookupValue
   ,lookupContact
@@ -141,9 +143,17 @@ ask = DHT (succeed . _dhtStateConfig)
 askOurID :: Monad m => DHT m ID
 askOurID = DHT (succeed . _dhtStateID)
 
--- | Our own address
+-- | Our own address.
 askOurAddr :: Monad m => DHT m Addr
 askOurAddr = _dhtConfigAddr <$> ask
+
+-- | The Hash Size used for keys.
+askHashSize :: Monad m => DHT m Int
+askHashSize = _dhtConfigHashSize <$> ask
+
+-- | A Possible bootstrap address.
+askBootstrapAddr :: Monad m => DHT m (Maybe Addr)
+askBootstrapAddr = _dhtConfigBootstrapAddr <$> ask
 
 -- ask for the messaging system
 askMessagingOp :: (Monad m,Functor m) => DHT m (MessagingOp m)
@@ -331,10 +341,11 @@ pingThis i tAddr = do
 -- | Store a ByteString value at the appropriate place(s) in the DHT.
 store :: (Monad m,Functor m) => ByteString -> ByteString -> DHT m ID
 store key val = do
-  size    <- kSize
-  ourAddr <- askOurAddr
-  let keyID = mkID key size
-  res     <- lookupContact ourAddr keyID
+  hashSize <- askHashSize
+  ourAddr  <- askOurAddr
+  let keyID = mkID key hashSize
+
+  res <- lookupContact ourAddr keyID
   let cts  = case res of
                (cs,Just c)  -> c:cs
                (cs,Nothing) -> cs

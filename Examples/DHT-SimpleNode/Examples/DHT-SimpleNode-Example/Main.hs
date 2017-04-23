@@ -87,8 +87,9 @@ testStore = do
 testLookup :: DHT IO ()
 testLookup = do
   lgHere "Assuming values might have been stored by somebody else for \"Hello\" and \"foo\", lookup the values."
-  mVal0 <- findValue (mkID ("Hello"::Lazy.ByteString) 8)
-  mVal1 <- findValue (mkID ("foo"::Lazy.ByteString) 8)
+  hashSize <- askHashSize
+  mVal0 <- findValue (mkID ("Hello"::Lazy.ByteString) hashSize)
+  mVal1 <- findValue (mkID ("foo"::Lazy.ByteString) hashSize)
   lgFindResponse mVal0
   lgFindResponse mVal1
   return ()

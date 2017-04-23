@@ -136,10 +136,10 @@ inRange target us path = towardsNearest path && ((== Near) . head . drop (length
 --   - If there is a Bad Contact then it will replace it
 --   - If there are any Questionable Contacts then they will be updated with the given ping function one by one. If one becomes Bad it will be replaced,
 --     otherwise the inserted Contact is not inserted.
-insert :: forall m. Monad m => Addr -> Time -> (Addr -> m Bool) -> Routing -> m Routing
-insert cAddr now ping rt = finalRt
+insert :: forall m. Monad m => Addr -> Time -> (Addr -> m Bool) -> Int -> Routing -> m Routing
+insert cAddr now ping hashSize rt = finalRt
   where
-    cID           = mkID cAddr (maxBucketSize rt)
+    cID           = mkID cAddr hashSize
     totalDistance = distance cID $ ourRoutingID rt
     finalTree     = insertTree totalDistance [] (_tree rt)
     finalRt       = finalTree >>= \t -> return rt{_tree = t}
@@ -182,8 +182,8 @@ insert cAddr now ping rt = finalRt
     insertTree _ _ _  = error "insertTree"
 
 -- | 'insert' multiple 'Addr's at the same 'Time'.
-inserts :: Monad m => [Addr] -> Time -> (Addr -> m Bool) -> Routing -> m Routing
-inserts cAddrs now ping rt = foldrM (\cAddr accRt -> insert cAddr now ping accRt) rt cAddrs
+inserts :: Monad m => [Addr] -> Time -> (Addr -> m Bool) -> Int -> Routing -> m Routing
+inserts cAddrs now ping hashSize rt = foldrM (\cAddr accRt -> insert cAddr now ping hashSize accRt) rt cAddrs
 
 -- sort a list of Contact's by their distance to an ID
 sortTo :: ID -> [Contact] -> [Contact]
@@ -207,15 +207,15 @@ data Lookup
 
 -- | Lookup the 'Contact' of the target 'ID' and the nearest neighbour Contacts
 -- Accessed 'Bucket's are updated.
-lookup :: Addr -> ID -> Time -> Routing -> (Routing,([Contact], Maybe Contact))
-lookup enquirerAddr targetID now rt =
+lookup :: Addr -> ID -> Time -> Int -> Routing -> (Routing,([Contact], Maybe Contact))
+lookup enquirerAddr targetID now hashSize rt =
   let (finalTree,lk) = lookupTree totalDistance (_tree rt) (NotFound [] size)
       rt' = rt{_tree = finalTree}
      in case lk of
                NotFound cs _ -> (rt',(sortTo targetID cs,Nothing))
                Found c  cs _  -> (rt',(sortTo targetID cs,Just c))
   where
-    totalDistance = distance (mkID enquirerAddr $ maxBucketSize rt) targetID
+    totalDistance = distance (mkID enquirerAddr hashSize) targetID
     size          = maxBucketSize rt
 
     lookupTree :: Distance -> Tree -> Lookup -> (Tree,Lookup)
