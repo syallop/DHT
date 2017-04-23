@@ -140,15 +140,11 @@ main = do
   let hashSize = 8
 
       -- Make the config for one of our test nodes at a given addr
-      mkConfig :: Addr -> IO (DHTConfig DHT IO)
-      mkConfig ourAddr = mkSimpleNodeConfig ourAddr hashSize mLogging
-
-      -- Run a test node with a config, deciding whether to bootstrap off the
-      -- designated bootstrap address.
-      runWith :: Bool -> DHTConfig DHT IO -> DHT IO a -> IO (Either DHTError a)
-      runWith shouldBootstrap dhtConfig dhtProgram =
-        let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
-           in newSimpleNode dhtConfig mBootstrapAddr dhtProgram
+      -- Decide whether to bootstrap off the designated bootstrap address.
+      mkConfig :: Addr -> Bool -> IO (DHTConfig DHT IO)
+      mkConfig ourAddr shouldBootstrap
+        = let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
+             in mkSimpleNodeConfig ourAddr hashSize mLogging mBootstrapAddr
 
       -- Asynchronously run a test node with a name and start delay,
       -- deciding whether to bootstrap off the designated bootstrap address.
@@ -157,11 +153,11 @@ main = do
       -- serving requests from other nodes.
       run :: String -> Int -> Bool -> Addr -> DHT IO a -> IO ()
       run testName startDelay shouldBootstrap ourAddr dhtProgram
-        = forkVoid_ $ do config <- mkConfig ourAddr
-                         runWith shouldBootstrap config $ do lg $ "Creating " ++ testName ++ " node."
-                                                             liftDHT $ delay startDelay
-                                                             dhtProgram
-                                                             idle
+        = forkVoid_ $ do config <- mkConfig ourAddr shouldBootstrap
+                         newSimpleNode config $ do lg $ "Creating " ++ testName ++ " node."
+                                                   liftDHT $ delay startDelay
+                                                   dhtProgram
+                                                   idle
 
   -- Create the first node others will use as a bootstrap.
   run "bootstrap" 0 False bootstrapAddr $ return ()

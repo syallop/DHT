@@ -36,8 +36,9 @@ import Control.Monad
 mkSimpleNodeConfig :: Addr
                    -> Int
                    -> LoggingOp IO
+                   -> Maybe Addr
                    -> IO (DHTConfig DHT IO)
-mkSimpleNodeConfig ourAddr hashSize logging = do
+mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
   now          <- timeF
   routingTable <- newSimpleRoutingTable hashSize ourID now
   valueStore   <- newSimpleValueStore
@@ -50,7 +51,7 @@ mkSimpleNodeConfig ourAddr hashSize logging = do
                   ,_dhtOpValueStoreOp   = valueStore
                   ,_dhtOpLoggingOp      = logging
                   }
-  return $ DHTConfig ops ourAddr hashSize
+  return $ DHTConfig ops ourAddr hashSize mBootstrapAddr
   where
     timeF :: IO Time
     timeF = round <$> getPOSIXTime
@@ -67,14 +68,13 @@ mkSimpleNodeConfig ourAddr hashSize logging = do
 -- - Will handle incoming messages for the duration of the given program.
 -- Continuing communication after we reach the end of our own DHT computation must be programmed explicitly.
 newSimpleNode :: DHTConfig DHT IO
-              -> Maybe Addr
               -> DHT IO a
               -> IO (Either DHTError a)
-newSimpleNode dhtConfig mBootstrapAddr dht = do
-  let run :: Maybe Addr -> DHT IO a -> IO (Either DHTError a)
+newSimpleNode dhtConfig dht = do
+  let run :: DHT IO a -> IO (Either DHTError a)
       run = runDHT dhtConfig
 
-  forkIO $ void $ run Nothing recvAndHandleMessages
+  forkIO $ void $ run recvAndHandleMessages
 
-  run mBootstrapAddr dht
+  run $ bootstrap >> dht
 

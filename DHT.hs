@@ -31,6 +31,7 @@ module DHT
   ,quitDHT
 
   ,bootstrap
+  ,bootstrapFrom
   ,liftDHT
 
   -- *** Core Operations
@@ -74,9 +75,10 @@ import DHT.Op
 {- DHT configuration components -}
 -- | DHT configuration
 data DHTConfig dht m = DHTConfig
-  {_dhtConfigOps      :: DHTOp dht m -- ^ The operations we require to implement the DHT
-  ,_dhtConfigAddr     :: Addr        -- ^ Our address
-  ,_dhtConfigHashSize :: Int         -- ^ How many bits to use in hashed ID's
+  {_dhtConfigOps           :: DHTOp dht m -- ^ The operations we require to implement the DHT
+  ,_dhtConfigAddr          :: Addr        -- ^ Our address
+  ,_dhtConfigHashSize      :: Int         -- ^ How many bits to use in hashed ID's
+  ,_dhtConfigBootstrapAddr :: Maybe Addr  -- ^ Address to bootstrap from
   }
 
 -- |
@@ -418,10 +420,9 @@ findData cmmnd input = findData' cmmnd input []
 -- | Execute a DHT program with the given configuration parameters.
 runDHT :: Monad m
        => DHTConfig DHT m
-       -> Maybe Addr
        -> DHT m a
        -> m (Either DHTError a)
-runDHT dhtConfig mBootstrapAddr dhtProgram =
+runDHT dhtConfig dhtProgram =
   let -- The state is the user config and an ID we're assigining to ourself
       -- based upon it.
       ourAddr    = _dhtConfigAddr dhtConfig
@@ -429,20 +430,24 @@ runDHT dhtConfig mBootstrapAddr dhtProgram =
       ourID      = mkID ourAddr hashSize
       dhtState   = DHTState dhtConfig ourID
 
-      -- If we've given a bootstrap address, bootstrap before running the given
-      -- program
-      dhtProgram' = case mBootstrapAddr of
-                      Nothing
-                        -> dhtProgram
+     in _runDHT dhtProgram dhtState
 
-                      Just bootstrapAddr
-                        -> do bootstrap bootstrapAddr
-                              dhtProgram
-     in _runDHT dhtProgram' dhtState
+-- | Bootstrap against the DHTs configured bootstrap address.
+bootstrap :: Monad m => DHT m ()
+bootstrap = do
+  config <- ask
+  let mBootstrapAddr = _dhtConfigBootstrapAddr config
+  case mBootstrapAddr of
+    -- TODO: Log that we havnt?
+    Nothing
+      -> return ()
+
+    Just bootstrapAddr
+      -> bootstrapFrom bootstrapAddr
 
 -- | Bootstrap against a bootstrap address.
-bootstrap :: (Monad m,Functor m) => Addr -> DHT m ()
-bootstrap bAddr = do
+bootstrapFrom :: (Monad m,Functor m) => Addr -> DHT m ()
+bootstrapFrom bAddr = do
   -- TODO: Maybe check they exist or respond to messages first?
   insertAddr bAddr
 

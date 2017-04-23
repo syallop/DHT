@@ -24,11 +24,11 @@ mkSimpleNodeConfig
   :: Addr                  -- ^ Our own address
   -> Int                   -- ^ Hash size
   -> LoggingOp IO          -- ^ An optional logging function
+  -> Maybe Addr            -- ^ Possible bootstrap address
   -> IO (DHTConfig DHT IO)
 
 newSimpleNode
   :: DHTConfig DHT IO       -- ^ Configuration, probably from 'mkSimpleNodeConfig'
-  -> Maybe Addr             -- ^ Possible bootstrap address
   -> DHT IO a               -- ^ The DHT program to run
   -> IO (Either DHTError a)
 ```
@@ -37,14 +37,14 @@ newSimpleNode
 For example, two nodes interact without logging.
 ```haskell
 -- A ‘bootstrap’ node which does nothing itself at network address 192.168.0.1
-do config <- mkSimpleNodeConfig (Addr "192.168.0.1" 6470) 32 Nothing
-   newSimpleNode config Nothing $ forever threadDelay 1000000
+do config <- mkSimpleNodeConfig (Addr "192.168.0.1" 6470) 32 Nothing Nothing
+   newSimpleNode config $ forever threadDelay 1000000
 ```
 ```haskell
 -- A node executing on 192.168.0.2 which stores a value (possibly at 192.168.0.1)
 -- and instantly retrieves it. Hopefully.
-do config <- mkSimpleNodeConfig (Addr "192.168.0.2" 6470) 32 Nothing
-   newSimpleNode config (Just $ Addr "192.168.0.1" 6470) $ do
+do config <- mkSimpleNodeConfig (Addr "192.168.0.2" 6470) 32 Nothing (Just $ Addr "192.168.0.1" 6470)
+   newSimpleNode config $ do
        id       <- store "Hello" " World!"
        (_,mStr) <- findValue id
        putStrLn $ case mStr of
