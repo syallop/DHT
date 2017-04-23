@@ -71,10 +71,6 @@ newSimpleNode :: DHTConfig DHT IO
               -> DHT IO a
               -> IO (Either DHTError a)
 newSimpleNode dhtConfig dht = do
-  let run :: DHT IO a -> IO (Either DHTError a)
-      run = runDHT dhtConfig
-
-  forkIO $ void $ run recvAndHandleMessages
-
-  run $ bootstrap >> dht
+  forkIO $ void $ startMessaging dhtConfig
+  runDHT dhtConfig $ bootstrap >> dht
 

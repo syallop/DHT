@@ -25,9 +25,7 @@ module DHT
 
   -- ** DHT functions
   ,runDHT
-  ,handleMessage
-  ,recvAndHandleMessage
-  ,recvAndHandleMessages
+  ,startMessaging
   ,quitDHT
 
   ,bootstrap
@@ -54,6 +52,11 @@ module DHT
 
   ,joinDHT
   ,timeOut
+
+  -- *** Alternatives to calling 'startMessaging'
+  ,handleMessage
+  ,recvAndHandleMessage
+  ,recvAndHandleMessages
   )
   where
 
@@ -431,6 +434,19 @@ runDHT dhtConfig dhtProgram =
       dhtState   = DHTState dhtConfig ourID
 
      in _runDHT dhtProgram dhtState
+
+-- | For the DHT to actually send and recieve messages, you probably want to run
+-- this in the background E.G. with a forkIO.
+-- Alternatively:
+-- - Run 'recvAndHandleMessages' with your Config whenever appropriate.
+-- - Manually pump recvAndHandleMessage
+-- - Extra manually use 'decodeSomeMessage' and pass the result into
+-- 'handleMessage'.
+startMessaging
+  :: Monad m
+  => DHTConfig DHT m
+  -> m (Either DHTError ())
+startMessaging dhtConfig = runDHT dhtConfig recvAndHandleMessages
 
 -- | Bootstrap against the DHTs configured bootstrap address.
 bootstrap :: Monad m => DHT m ()
