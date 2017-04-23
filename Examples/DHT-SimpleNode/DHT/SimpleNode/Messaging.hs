@@ -32,6 +32,12 @@ data MsgState = MsgState
 
   -- Map each Address we've established contact with to its outgoing socket.
   ,_msgStateSocketsOut :: Map.Map Addr Socket
+
+  -- Socket we're listening on, if it's created
+  ,_msgStateSocketIn   :: Maybe Socket
+
+  -- The amount of padding a port number is padded to.
+  ,_msgStateMaxPortLength :: Int
   }
   -- TODO: These two state items need not be coupled together
 
@@ -48,14 +54,18 @@ modifyMessagingState (MessagingState msgState) f = modifyMVar msgState f
 newSimpleMessaging :: Int -> (Int,Port) -> IO (MessagingOp IO)
 newSimpleMessaging size (maxPortLength,ourPort) = do
   messagingState <- newMessagingState
+
   return $ mkMessaging messagingState
   where
     mkMessaging :: MessagingState -> MessagingOp IO
-    mkMessaging msgState = MessagingOp (waitF msgState size) (routeF msgState) (sendF msgState (maxPortLength,ourPort))
+    mkMessaging msgState = MessagingOp (waitF msgState size)
+                                       (routeF msgState)
+                                       (sendF msgState (maxPortLength,ourPort))
+                                       (recvF msgState)
 
 
     newMessagingState :: IO MessagingState
-    newMessagingState = do m <- newMVar $ MsgState Map.empty Map.empty
+    newMessagingState = do m <- newMVar $ MsgState Map.empty Map.empty Nothing maxPortLength
                            return $ MessagingState m
 
 -- Physically send bytes to the given address.
@@ -104,7 +114,7 @@ sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocket
 waitF :: MessagingState -> Int -> WaitF IO
 waitF messagingState size cmd input = do
   waitMVar <- modifyMessagingState messagingState $ \msgState -> do
-    let state@(MsgState replyMap _) = msgState
+    let state@(MsgState replyMap _ _ _) = msgState
     waitMVar :: MVar SomeOut <- newEmptyMVar
     let pattern   = respPat size cmd input
         replyMap' = Map.insert pattern waitMVar replyMap
@@ -119,7 +129,7 @@ waitF messagingState size cmd input = do
 routeF :: MessagingState -> RouteF IO
 routeF messagingState cmd resp = do
   mRespToPut <- modifyMessagingState messagingState $ \msgState -> do
-      let state@(MsgState replyMap _) = msgState
+      let state@(MsgState replyMap _ _ _) = msgState
           (pattern,out) = disassemble cmd resp
 
       case Map.lookup pattern replyMap of
@@ -140,6 +150,41 @@ routeF messagingState cmd resp = do
     Just (waitMVar,someOut)
       -> putMVar waitMVar someOut
 
+-- Receive a message from a sending DHT. Either a request or a response to a
+-- request we made.
+recvF :: MessagingState -> RecvF IO
+recvF (MessagingState msgState) (Addr ourIP ourPort) = do
+  state <- takeMVar msgState
+  case _msgStateSocketIn state of
+    -- We havnt initialised our incoming socket
+    Nothing
+      -> do (ourSock,state') <- openOurSocket state
+            putMVar msgState state'
+            recvF' ourSock state
+
+    Just ourSock
+      -> do putMVar msgState state
+            recvF' ourSock state
+  where
+    recvF' ourSock state = do
+      (msg,SockAddrInet _ fromHost) <- Strict.recvFrom ourSock 10240
+      let (replyPortMsg,msg') = Strict.splitAt (_msgStateMaxPortLength state) msg
+      fromIP <- inet_ntoa fromHost
+      let replyPort = toPort replyPortMsg
+          replyAddr = Addr fromIP replyPort
+
+      return (replyAddr,Lazy.fromStrict msg')
+
+
+    openOurSocket state = do
+      ourSock <- socket AF_INET Datagram 17
+      let udpPort = fromInteger $ toInteger ourPort
+      inetAddr <- inet_addr ourIP
+      bind ourSock $ SockAddrInet udpPort inetAddr
+      return (ourSock,state{_msgStateSocketIn = Just ourSock})
+
+    toPort :: Strict.ByteString -> Port
+    toPort = read . Strict.unpack
 
 data SomeOut = forall c. Typeable (Out c) => SomeOut (Command c) (Out c)
   deriving Typeable

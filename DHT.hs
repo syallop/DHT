@@ -21,11 +21,13 @@ module DHT
   ,RoutingTableOp(..)
   ,ValueStoreOp(..)
   ,LoggingOp
-  ,SendF,WaitF,RouteF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
+  ,SendF,WaitF,RouteF,RecvF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
 
   -- ** DHT functions
   ,runDHT
   ,handleMessage
+  ,recvAndHandleMessage
+  ,recvAndHandleMessages
   ,quitDHT
 
   ,bootstrap
@@ -208,6 +210,51 @@ sendMessage tAddr msg = do
       -> do sendBytes tAddr msgBs
             waitResponse cmd i
 
+
+-- receive a bytestring on the DHTs address. Note the sender.
+recvBytes :: Monad m => DHT m (Addr,ByteString)
+recvBytes = do
+  msgSys <- askMessagingOp
+  addr   <- askOurAddr
+  liftDHT $ _messagingOpRecvBytes msgSys addr
+
+-- receive SomeMessage on the DHTs address. Note the sender.
+recvMessage :: Monad m => DHT m (Maybe (Addr,SomeMessage))
+recvMessage = do
+  (sender,bs) <- recvBytes
+  let mMsg = decodeSomeMessage bs
+  case mMsg of
+    -- Sender sent garbage
+    Nothing
+      -> return Nothing
+
+    Just msg
+      -> return $ Just (sender,msg)
+
+-- receive and handle a single incoming message
+recvAndHandleMessage :: Monad m => DHT m ()
+recvAndHandleMessage = do
+  mMsg <- recvMessage
+  case mMsg of
+    -- A received message hasnt parsed.
+    -- TODO: Might want to note this somehow.
+    Nothing
+      -> return ()
+
+    Just (sender,SomeMessage msg)
+      -> handleMessage sender msg
+
+-- | Receive and handle all incoming messages.
+-- You must either:
+-- - Call this
+-- - Manually pump recvAndHandleMessage
+-- - Extra manually use 'decodeSomeMessage' and pass the result into
+-- 'handleMessage' for the DHT to receive responses to your requests and serve
+-- requests from other DHTs.
+recvAndHandleMessages :: Monad m => DHT m ()
+recvAndHandleMessages = do
+  recvAndHandleMessage
+  recvAndHandleMessages
 
 -- insert a contact address into the routing table
 -- LOCAL

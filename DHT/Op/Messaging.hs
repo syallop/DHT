@@ -13,6 +13,7 @@ module DHT.Op.Messaging
   ,WaitF
   ,RouteF
   ,SendF
+  ,RecvF
   ) where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -28,6 +29,7 @@ data MessagingOp m = MessagingOp
   ,_messagingOpRouteResponse :: RouteF m -- ^ Routing a recieved response to a waiter
 
   ,_messagingOpSendBytes     :: SendF m  -- ^ Physically sendind bytes to an address
+  ,_messagingOpRecvBytes     :: RecvF m  -- ^ Physically receive bytes on an address to listen on
   }
 
 -- | Wait on the 'Out'put response in 'm' to a sent 'Command' with 'In'put.
@@ -39,4 +41,6 @@ type RouteF m = forall c. (Typeable (Out c)) => Command c -> Resp c -> m ()
 -- | Send bytes to an 'Addr'ess in 'm'.
 type SendF  m = Addr -> ByteString -> m ()
 
-
+-- | Receive Bytes on an listening address in 'm'.
+-- Also return the sender
+type RecvF  m = Addr -> m (Addr,ByteString)

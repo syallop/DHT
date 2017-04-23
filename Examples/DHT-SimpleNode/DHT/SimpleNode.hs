@@ -30,6 +30,7 @@ import DHT.SimpleNode.Messaging
 import DHT.SimpleNode.RoutingTable
 import DHT.SimpleNode.ValueStore
 
+import Control.Monad
 
 -- | Start a new node. Attempt to bind ourself to the given 'Addr'ess, bootstrap of a possible 'Addr'ess
 -- , log with the given 'Logger' and execute the given 'DHT IO a' computation providing an error or
@@ -47,40 +48,7 @@ newSimpleNode ourAddr mBootstrapAddr logging dht = do
   let run :: Maybe Addr -> DHT IO a -> IO (Either DHTError a)
       run = runDHT ourAddr size timeF randF messaging routingTable valueStore logging
 
-  _ <- let handleMessages :: IO ()
-           handleMessages = do
-               ourSock <- socket AF_INET Datagram 17
-
-               let udpPort = fromInteger $ toInteger ourPort
-               inetAddr <- inet_addr ourIP
-               bind ourSock $ SockAddrInet udpPort inetAddr
-
-               _ <- forkIO $ handleMessages' ourSock
-               return ()
-
-           handleMessages' :: Socket -> IO b
-           handleMessages' ourSock = do
-               (msg,SockAddrInet _ fromHost) <- Strict.recvFrom ourSock 10240
-               let (replyPortMsg,msg') = Strict.splitAt maxPortLength msg
-
-               fromIP <- inet_ntoa fromHost
-               let replyPort = toPort replyPortMsg
-                   replyAddr = Addr fromIP replyPort
-
-               case decodeSomeMessage (Lazy.fromStrict msg') of
-
-                 -- Silently drop non-messages
-                 Nothing
-                   -> handleMessages' ourSock
-
-                 Just (SomeMessage message)
-                   -> do res <- run Nothing $ handleMessage replyAddr message
-                         case res of
-
-                           -- handling the message failed somehow.
-                           Left _err -> fail "handleMessages'"
-                           Right () -> handleMessages' ourSock
-          in forkIO handleMessages
+  forkIO $ void $ run Nothing recvAndHandleMessages
 
   run mBootstrapAddr dht
   where
