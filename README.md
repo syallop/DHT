@@ -55,18 +55,29 @@ Programs can be ran by calling a ‘runDHT’ function which is supplied a varie
 and into which several dependent subsystems are injected.
 ```haskell
 runDHT
-  :: (Monad m,Functor m)
-  => Addr                    -- ^ Own address
-  -> Int                     -- ^ Size of IDs
-  -> m Time                  -- ^ Current time
-  -> m Int                   -- ^ Random Int
-  -> MessagingOp m           -- ^ Send Bytes, wait on sent commands and route received commands.
-  -> RoutingTableOp m        -- ^ Insert and lookup of (some) known addresses
-  -> ValueStoreOp m          -- ^ Store and retrieve values by ID
-  -> LoggingOp m             -- ^ How and whether to log output
-  -> Maybe Addr              -- ^ Possible bootstrap address
-  -> DHT m a                 -- ^ Computation to run
-  -> m (Either DHTError a)   -- ^ Error or result in some Monad ‘m’.
+  :: Monad m
+  => DHTConfig DHT m
+  -> DHT m a
+  -> m (Either DHTError a)
+...
+```
+
+To build a 'DHTConfig' you need to make several choices:
+```haskell
+let myOperations = DHTOp
+      {_dhtOpTimeOp         :: m Time               -- ^ Determine the current time
+      ,_dhtOpRandomIntOp    :: m Int                -- ^ Generate a random Int
+      ,_dhtOpMessagingOp    :: MessagingOp m        -- ^ Sending, waiting and routing messages
+      ,_dhtOpRoutingTableOp :: RoutingTableOp dht m -- ^ Insert and lookup of (some) known addresses
+      ,_dhtOpValueStoreOp   :: ValueStoreOp m       -- ^ Store and retrieve values by ID.
+      ,_dhtOpLoggingOp      :: LoggingOp m          -- ^ How and whether to log output.
+      }
+
+    myConfig = DHTConfig
+      {_dhtConfigOps      = myOperations
+      ,_dhtConfigAddr     = Addr "127.0.0.1" 6666   -- ^ Address to bind on
+      ,_dhtConfigHashSize = 8                       -- ^ Size of IDs
+      }
 ```
 
 The larger subsystems are responsible for:
@@ -79,6 +90,9 @@ The larger subsystems are responsible for:
 | Logging      | <ul> <li>Whether and how to log given Strings</li> </ul>                                                                                                                                                    |
 
 Imlement these subsystems by importing `DHT.Op.SUBSYSTEM`.
+
+## Example
+
 Some simple example implementations are found in the DHT-SimpleNode example, all of which use IO as the base ‘m’:
 
 | Module                      | Exports                                                                 | Description                                                                                                                                                                                                                    |
@@ -90,28 +104,35 @@ Some simple example implementations are found in the DHT-SimpleNode example, all
 
 “DHT.SimpleNode” then ties all these choices together into a concrete implementation:
 ```haskell
-newSimpleNode
+mkSimpleNodeConfig
   :: Addr                  -- ^ Our own address
-  -> Maybe Addr            -- ^ Possible bootstrap address
-  -> Logging IO            -- ^ An optional logging function
-  -> DHT IO a              -- ^ The DHT program to run
+  -> Int                   -- ^ Hash size
+  -> LoggingOp IO          -- ^ An optional logging function
+  -> IO (DHTConfig DHT IO)
+
+newSimpleNode
+  :: DHTConfig DHT IO       -- ^ Configuration, probably from 'mkSimpleNodeConfig'
+  -> Maybe Addr             -- ^ Possible bootstrap address
+  -> DHT IO a               -- ^ The DHT program to run
   -> IO (Either DHTError a)
 ```
 
 For example, two nodes interact without logging.
 ```haskell
 -- A ‘bootstrap’ node which does nothing itself at network address 192.168.0.1
-newSimpleNode (Addr “192.168.0.1” 6470) Nothing Nothing $ forever $ threadDelay 1000000
+do config <- mkSimpleNodeConfig (Addr "192.168.0.1" 6470) 32 Nothing
+   newSimpleNode config Nothing $ forever threadDelay 1000000
 ```
 ```haskell
 -- A node executing on 192.168.0.2 which stores a value (possibly at 192.168.0.1)
 -- and instantly retrieves it. Hopefully.
-newSimpleNode (Addr “192.168.0.2” 6470) (Just $ Addr “192.168.0.1) Nothing $ do
-    id       <- store “Hello" " World!”
-    (_,mStr) <- findValue id
-    putStrLn $ case mStr of
-        Just “ World!” -> “Success!”
-        Just _         -> “We’re being lied to or... hash collision?”
-        Nothing        -> “We can’t find it. Blame the hardware/ network!”
+do config <- mkSimpleNodeConfig (Addr "192.168.0.2" 6470) 32 Nothing
+   newSimpleNode config (Just $ Addr "192.168.0.1" 6470) $ do
+       id       <- store "Hello" " World!"
+       (_,mStr) <- findValue id
+       putStrLn $ case mStr of
+           Just “ World!” -> “Success!”
+           Just _         -> “We’re being lied to or... hash collision?”
+           Nothing        -> “We can’t find it. Blame the hardware/ network!”
 ```
 

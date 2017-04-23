@@ -14,33 +14,42 @@ SimpleNodes and tests their operations.
 | DHT.SimpleNode.ValueStore   | Stores data in a Data.Map                                                                                                           |
 
 ## Usage
-Call
+Create a default configuration by passing your address, a hash size and a
+possible logging function to `mkSimpleNodeConfig`. Then pass this config, a
+possible bootstrap node and a possible logging function to `newSimpleNode` to
+execute.
 
 ```haskell
+mkSimpleNodeConfig
+  :: Addr                  -- ^ Our own address
+  -> Int                   -- ^ Hash size
+  -> LoggingOp IO          -- ^ An optional logging function
+  -> IO (DHTConfig DHT IO)
+
 newSimpleNode
-  :: Addr
-  -> Maybe Addr
-  -> LoggingOp IO
-  -> DHT IO a
+  :: DHTConfig DHT IO       -- ^ Configuration, probably from 'mkSimpleNodeConfig'
+  -> Maybe Addr             -- ^ Possible bootstrap address
+  -> DHT IO a               -- ^ The DHT program to run
   -> IO (Either DHTError a)
 ```
 
-with your Addr, a possible bootstrap Addr, possible logging operation and the DHT program to execute.
-
+## Example
 For example, two nodes interact without logging.
 ```haskell
 -- A ‘bootstrap’ node which does nothing itself at network address 192.168.0.1
-newSimpleNode (Addr “192.168.0.1” 6470) Nothing Nothing $ forever $ threadDelay 1000000
+do config <- mkSimpleNodeConfig (Addr "192.168.0.1" 6470) 32 Nothing
+   newSimpleNode config Nothing $ forever threadDelay 1000000
 ```
 ```haskell
 -- A node executing on 192.168.0.2 which stores a value (possibly at 192.168.0.1)
 -- and instantly retrieves it. Hopefully.
-newSimpleNode (Addr “192.168.0.2” 6470) (Just $ Addr “192.168.0.1) Nothing $ do
-    id       <- store “Hello" " World!”
-    (_,mStr) <- findValue id
-    putStrLn $ case mStr of
-        Just “ World!” -> “Success!”
-        Just _         -> “We’re being lied to or... hash collision?”
-        Nothing        -> “We can’t find it. Blame the hardware/ network!”
+do config <- mkSimpleNodeConfig (Addr "192.168.0.2" 6470) 32 Nothing
+   newSimpleNode config (Just $ Addr "192.168.0.1" 6470) $ do
+       id       <- store "Hello" " World!"
+       (_,mStr) <- findValue id
+       putStrLn $ case mStr of
+           Just “ World!” -> “Success!”
+           Just _         -> “We’re being lied to or... hash collision?”
+           Nothing        -> “We can’t find it. Blame the hardware/ network!”
 ```
 
