@@ -24,4 +24,4 @@ executable DHT-SimpleNode-Example
                        DHT-SimpleNode
   -- hs-source-dirs:
   default-language:    Haskell2010
-
+  ghc-options:         -threaded
