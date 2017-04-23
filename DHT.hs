@@ -74,8 +74,9 @@ import DHT.Op
 {- DHT configuration components -}
 -- | DHT configuration
 data DHTConfig dht m = DHTConfig
-  {_dhtConfigOps  :: DHTOp dht m -- ^ The operations we require to implement the DHT
-  ,_dhtConfigAddr :: Addr        -- ^ Our address
+  {_dhtConfigOps      :: DHTOp dht m -- ^ The operations we require to implement the DHT
+  ,_dhtConfigAddr     :: Addr        -- ^ Our address
+  ,_dhtConfigHashSize :: Int         -- ^ How many bits to use in hashed ID's
   }
 
 -- |
@@ -415,27 +416,29 @@ findData cmmnd input = findData' cmmnd input []
     flattenResults = first nub . foldr (\(xLs,xmr) (accLs,mr) -> (xLs ++ accLs, mplus mr xmr)) ([],Nothing)
 
 -- | Execute a DHT program with the given configuration parameters.
-runDHT :: (Monad m,Functor m)
-       => Addr
-       -> Int
-       -> m Time
-       -> m Int
-       -> MessagingOp m
-       -> RoutingTableOp DHT m
-       -> ValueStoreOp m
-       -> LoggingOp m
+runDHT :: Monad m
+       => DHTConfig DHT m
        -> Maybe Addr
        -> DHT m a
        -> m (Either DHTError a)
-runDHT ourAddr size timeF randF msgsys routingTable valStore logging mBootstrapAddr dht =
-  let ops      = DHTOp timeF randF msgsys routingTable valStore logging
-      config   = DHTConfig ops ourAddr
-      ourID    = mkID ourAddr size
-      state    = DHTState config ourID
-      dht'     = case mBootstrapAddr of
-                     Nothing -> dht
-                     Just bootstrapAddr -> bootstrap bootstrapAddr >> dht
-     in _runDHT dht' state
+runDHT dhtConfig mBootstrapAddr dhtProgram =
+  let -- The state is the user config and an ID we're assigining to ourself
+      -- based upon it.
+      ourAddr    = _dhtConfigAddr dhtConfig
+      hashSize   = _dhtConfigHashSize dhtConfig
+      ourID      = mkID ourAddr hashSize
+      dhtState   = DHTState dhtConfig ourID
+
+      -- If we've given a bootstrap address, bootstrap before running the given
+      -- program
+      dhtProgram' = case mBootstrapAddr of
+                      Nothing
+                        -> dhtProgram
+
+                      Just bootstrapAddr
+                        -> do bootstrap bootstrapAddr
+                              dhtProgram
+     in _runDHT dhtProgram' dhtState
 
 -- | Bootstrap against a bootstrap address.
 bootstrap :: (Monad m,Functor m) => Addr -> DHT m ()

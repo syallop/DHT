@@ -137,44 +137,43 @@ main :: IO ()
 main = do
   -- Create a logger to share across our example nodes
   mLogging <- newSimpleLogging
+  let hashSize = 8
+
+      -- Make the config for one of our test nodes at a given addr
+      mkConfig :: Addr -> IO (DHTConfig DHT IO)
+      mkConfig ourAddr = mkSimpleNodeConfig ourAddr hashSize mLogging
+
+      -- Run a test node with a config, deciding whether to bootstrap off the
+      -- designated bootstrap address.
+      runWith :: Bool -> DHTConfig DHT IO -> DHT IO a -> IO (Either DHTError a)
+      runWith shouldBootstrap dhtConfig dhtProgram =
+        let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
+           in newSimpleNode dhtConfig mBootstrapAddr dhtProgram
+
+      -- Asynchronously run a test node with a name and start delay,
+      -- deciding whether to bootstrap off the designated bootstrap address.
+      --
+      -- DHTPrograms remain idle after execution to allow them to continue
+      -- serving requests from other nodes.
+      run :: String -> Int -> Bool -> Addr -> DHT IO a -> IO ()
+      run testName startDelay shouldBootstrap ourAddr dhtProgram
+        = forkVoid_ $ do config <- mkConfig ourAddr
+                         runWith shouldBootstrap config $ do lg $ "Creating " ++ testName ++ " node."
+                                                             liftDHT $ delay startDelay
+                                                             dhtProgram
+                                                             idle
 
   -- Create the first node others will use as a bootstrap.
-  forkVoid_ $ newSimpleNode
-                bootstrapAddr
-                Nothing
-                mLogging
-                $ do lg "Creating bootstrap node."
-                     idle
+  run "bootstrap" 0 False bootstrapAddr $ return ()
 
   -- Test storing and retrieving a value
-  forkVoid_ $ newSimpleNode
-                (Addr "127.0.0.1" 6472)
-                (Just bootstrapAddr)
-                mLogging
-                $ do liftDHT $ delay 1
-                     lg "Creating testStore node."
-                     testStore
-                     idle
+  run "testStore" 1 True (Addr "127.0.0.1" 6472) testStore
 
   -- Test looking up a value WE didnt store
-  forkVoid_ $ newSimpleNode
-                (Addr "127.0.0.1" 6473)
-                (Just bootstrapAddr)
-                mLogging
-                $ do lg "Creating testLookup node."
-                     liftDHT $ delay 5
-                     testLookup
-                     idle
+  run "testLookup" 5 True (Addr "127.0.0.1" 6473) testLookup
 
   -- Test neighbour lookup
-  forkVoid_ $ newSimpleNode
-                (Addr "127.0.0.1" 6474)
-                (Just bootstrapAddr)
-                mLogging
-                $ do lg "Creating testNeighbours node."
-                     liftDHT $ delay 8
-                     testNeighbours
-                     idle
+  run "testNeighbours" 8 True (Addr "127.0.0.1" 6474) testNeighbours
 
   delay 10
   return ()
