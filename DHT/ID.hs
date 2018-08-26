@@ -6,29 +6,30 @@
 Stability : experimental
 
 An ID is a fixed length string of 'Bit's that identifies a resource (a node, a stored value, etc) in a DHT.
+
 There is a notion of 'distance' between ID's such that the distance from A to B will always be less than (or equal)
 to the total distance A to C to B.
  -}
 module DHT.ID
   (-- * Bits
-   Bit
-  ,pattern Zero
-  ,pattern One
-  ,Bits
-  ,showBit
-  ,showBits
-  ,dist
-  ,distance
+    Bit
+  , pattern Zero
+  , pattern One
+  , Bits
+  , showBit
+  , showBits
+  , dist
+  , distance
 
-  ,ID
-  ,mkID
+  , ID
+  , mkID
 
-  ,Distance
-  ,pattern Far
-  ,pattern Near
+  , Distance
+  , pattern Far
+  , pattern Near
 
-  ,toBits
-  ,fromBits
+  , toBits
+  , fromBits
   ) where
 
 import Data.List
@@ -38,18 +39,22 @@ import qualified Data.Bits as B
 -- | A binary digit
 type Bit = Bool
 
-pattern Zero :: Bool
+-- | Zero = False
+pattern Zero :: Bit
 pattern Zero = False
 
-pattern One :: Bool
+-- | One = True
+pattern One :: Bit
 pattern One  = True
 
--- | A string of 'Bit's
+-- | A string of 'Bit's.
 type Bits = [Bit]
 
--- convert an Int to Bits truncated to the given size
+-- | Convert an Int to Bits truncated to the given size.
 toBits :: Int -> Int -> Bits
-toBits i size = map (B.testBit i) [0..size]
+toBits i size
+  | size <= 0 = []
+  | otherwise = reverse . map (B.testBit i) $ [0..size-1]
 
 -- convert Bits to an Int (assuming it doesnt overflow)
 fromBits :: Bits -> Int
