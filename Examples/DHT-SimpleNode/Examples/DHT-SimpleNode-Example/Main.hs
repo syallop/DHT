@@ -134,6 +134,12 @@ testNeighbours = do
   where
     lgHere = lgAt "testNeighbours"
 
+-- Log our name, but otherwise do nothing.
+doNothing :: String -> DHT IO ()
+doNothing name = do
+  lgAt name "Doing nothing"
+  return ()
+
 main :: IO ()
 main = do
   -- Create a logger to share across our example nodes
@@ -152,7 +158,12 @@ main = do
       --
       -- DHTPrograms remain idle after execution to allow them to continue
       -- serving requests from other nodes.
-      run :: String -> Int -> Bool -> Addr -> DHT IO a -> IO ()
+      run :: String    -- Test name
+          -> Int       -- Delay before executing
+          -> Bool      -- Whether to bootstrap of the hardcoded bootstrapAddr
+          -> Addr      -- Nodes own address.
+          -> DHT IO a  -- DHT computation to execute
+          -> IO ()
       run testName startDelay shouldBootstrap ourAddr dhtProgram
         = forkVoid_ $ do config <- mkConfig ourAddr shouldBootstrap
                          newSimpleNode config $ do lg $ "Creating " ++ testName ++ " node."
@@ -163,14 +174,18 @@ main = do
   -- Create the first node others will use as a bootstrap.
   run "bootstrap" 0 False bootstrapAddr $ return ()
 
+  -- Create several other nodes.
+  forM [6472 .. 6480] $ \port -> do let name = ("bootstrap" <> show port)
+                                    run name 0 True (Addr "127.0.0.1" port) $ doNothing name
+                                    delay 1
   -- Test storing and retrieving a value
-  run "testStore" 1 True (Addr "127.0.0.1" 6472) testStore
+  run "testStore" 1 True (Addr "127.0.0.1" 6481) testStore
 
   -- Test looking up a value WE didnt store
-  run "testLookup" 5 True (Addr "127.0.0.1" 6473) testLookup
+  run "testLookup" 5 True (Addr "127.0.0.1" 6482) testLookup
 
   -- Test neighbour lookup
-  run "testNeighbours" 8 True (Addr "127.0.0.1" 6474) testNeighbours
+  run "testNeighbours" 8 True (Addr "127.0.0.1" 6483) testNeighbours
 
   delay 10
   return ()

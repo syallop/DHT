@@ -12,53 +12,53 @@ when the final DHT program is executed with 'runDHT'.
  -}
 module DHT
   (-- * DHT and configuration types
-   DHT()
-  ,DHTError(..)
-  ,DHTOp(..)
-  ,DHTConfig(..)
-  ,DHTState()
-  ,MessagingOp(..)
-  ,RoutingTableOp(..)
-  ,ValueStoreOp(..)
-  ,LoggingOp
-  ,SendF,WaitF,RouteF,RecvF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
+    DHT()
+  , DHTError(..)
+  , DHTOp(..)
+  , DHTConfig(..)
+  , DHTState()
+  , MessagingOp(..)
+  , RoutingTableOp(..)
+  , ValueStoreOp(..)
+  , LoggingOp
+  , SendF,WaitF,RouteF,RecvF,RTInsertF,RTLookupF,ValInsertF,ValLookupF
 
   -- ** DHT functions
-  ,runDHT
-  ,startMessaging
-  ,quitDHT
+  , runDHT
+  , startMessaging
+  , quitDHT
 
-  ,bootstrap
-  ,bootstrapFrom
-  ,liftDHT
+  , bootstrap
+  , bootstrapFrom
+  , liftDHT
 
   -- *** Core Operations
-  ,ping
-  ,store
-  ,findValue
-  ,findContact
+  , ping
+  , store
+  , findValue
+  , findContact
 
   -- *** Query the local state
-  ,askOurID
-  ,askOurAddr
-  ,askHashSize
-  ,askBootstrapAddr
-  ,kSize
-  ,lookupValue
-  ,lookupContact
+  , askOurID
+  , askOurAddr
+  , askHashSize
+  , askBootstrapAddr
+  , kSize
+  , lookupValue
+  , lookupContact
 
   -- *** Additional 'extra' operations, exposed for convenience
-  ,timeNow
-  ,randomInt
-  ,lg
+  , timeNow
+  , randomInt
+  , lg
 
-  ,joinDHT
-  ,timeOut
+  , joinDHT
+  , timeOut
 
   -- *** Alternatives to calling 'startMessaging'
-  ,handleMessage
-  ,recvAndHandleMessage
-  ,recvAndHandleMessages
+  , handleMessage
+  , recvAndHandleMessage
+  , recvAndHandleMessages
   )
   where
 
@@ -80,13 +80,14 @@ import DHT.Op
 {- DHT configuration components -}
 -- | DHT configuration
 data DHTConfig dht m = DHTConfig
-  {_dhtConfigOps           :: DHTOp dht m -- ^ The operations we require to implement the DHT
-  ,_dhtConfigAddr          :: Addr        -- ^ Our address
-  ,_dhtConfigHashSize      :: Int         -- ^ How many bits to use in hashed ID's
-  ,_dhtConfigBootstrapAddr :: Maybe Addr  -- ^ Address to bootstrap from
+  { _dhtConfigOps           :: DHTOp dht m -- ^ The operations we require to implement the DHT
+  , _dhtConfigAddr          :: Addr        -- ^ Our address
+  , _dhtConfigHashSize      :: Int         -- ^ How many bits to use in hashed ID's
+  , _dhtConfigBootstrapAddr :: Maybe Addr  -- ^ Address to bootstrap from
   }
 
--- |
+-- | The DHTState is threaded through 'DHT' computations and contains the
+-- initial DHTConfig and the ID we calculate for ourselves.
 data DHTState dht m = DHTState
   {_dhtStateConfig :: DHTConfig dht m -- ^ User configuration contains injected subsystems
   ,_dhtStateID     :: ID              -- ^ The ID we calculate for ourself
@@ -94,7 +95,7 @@ data DHTState dht m = DHTState
 
 {- The DHT type, instances and primitive operations -}
 
--- | DHT errors
+-- | DHT errors that may be returned from a DHT computation.
 data DHTError
   = ETimeOut         -- ^ Timed out waiting for a response
   | EInvalidResponse -- ^ Invalid response
@@ -103,6 +104,8 @@ data DHTError
 -- shortcircuits to a DHTError (with the monad instance) or returns an 'a'.
 newtype DHT m a = DHT {_runDHT :: DHTState DHT m -> m (Either DHTError a)}
 
+-- DHTs Monad instance threads DHTState as readable state, executes in 'm' and
+-- shortcircuits if a DHTError is returned.
 instance Monad m => Monad (DHT m) where
   return a = DHT $ \_ -> return $ Right a
 

@@ -24,7 +24,21 @@ import qualified Network.Socket.ByteString.Lazy as Lazy
 
 import qualified Data.Map as Map
 
-import Network.Socket (Socket,socket,sClose,connect,withSocketsDo,Family(AF_INET),SocketType(Datagram),inet_addr,SockAddr(SockAddrInet),inet_ntoa,bind)
+import Network.Socket
+  ( Socket
+  , socket
+  , sClose
+  , connect
+  , withSocketsDo
+  , Family(AF_INET)
+  , SocketType(Datagram)
+  , inet_addr
+  , SockAddr(SockAddrInet)
+  , inet_ntoa
+  , bind
+  , setCloseOnExecIfNeeded
+  , fdSocket
+  )
 
 data MsgState = MsgState
   { -- Map response patterns waited for to MVars waiting for the corresponding message.
@@ -97,6 +111,8 @@ sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocket
 
                   sock <- socket ipv4 Datagram udp
                   connect sock $ SockAddrInet udpPort inetAddr
+
+                  setCloseOnExecIfNeeded $ fdSocket sock
 
                   return (sock, state{_msgStateSocketsOut = Map.insert addr sock $ _msgStateSocketsOut state})
 
