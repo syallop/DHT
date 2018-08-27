@@ -8,12 +8,12 @@ Stability : experimental
 Record contact information for a DHT speaking node.
  -}
 module DHT.Contact
-  (Addr(..)
-  ,Goodness(..)
-  ,Contact(..)
+  ( Addr(..)
+  , Goodness(..)
+  , Contact(..)
 
-  ,showContact
-  ,showContacts
+  , showContact
+  , showContacts
   ) where
 
 import DHT.ID
@@ -56,7 +56,7 @@ data Contact = Contact
   ,_addr     :: Addr
   ,_goodness :: Goodness
   }
-  deriving (Show,Read,Ord,Generic,Typeable)
+  deriving (Show, Ord, Generic, Typeable)
 instance Binary Contact
 
 -- Contacts are compared for equality on their ID's ONLY
@@ -64,7 +64,7 @@ instance Eq Contact where
   (Contact id0 _ _) == (Contact id1 _ _) = id0 == id1
 
 showContact :: Contact -> String
-showContact (Contact i addr _) = concat ["<",showBits i,"@",showAddr addr,">"]
+showContact (Contact i addr _) = concat ["<",show i,"@",showAddr addr,">"]
 
 showContacts :: [Contact] -> String
 showContacts []     = "{}"

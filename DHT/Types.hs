@@ -4,9 +4,9 @@ Stability : experimental
 Some common types used across a DHT.
  -}
 module DHT.Types
-  (IP
-  ,Port
-  ,Time
+  ( IP
+  , Port
+  , Time
   ) where
 
 -- | An IP address should be in the format of an IPV4 string.

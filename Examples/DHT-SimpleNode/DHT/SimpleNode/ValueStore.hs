@@ -11,7 +11,6 @@ module DHT.SimpleNode.ValueStore
 import DHT
 import DHT.ID
 
-import Control.Applicative
 import Control.Concurrent
 import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy.Char8 as Lazy

@@ -41,7 +41,7 @@ lgPrefix p str = lg (p <> str)
 lgAt :: String -> String -> DHT IO ()
 lgAt name str = do
   id <- askOurID
-  lgPrefix (showBits id <> " " <> name <> " :\t") str
+  lgPrefix (show id <> " " <> name <> " :\t") str
 
 -- Store two values in the DHT, then show their IDs then try and retrieve the
 -- values, expecting them to be the same.
@@ -56,7 +56,7 @@ testStore = do
   lgHere . toS $ "Storing two values: " <> key0<>":"<>val0<>" and " <> key1<>":"<>val1
   keyID0  <- store key0 val0
   keyID1  <- store key1 val1
-  lgHere $ "The IDs of the two keys are: " ++ showBits keyID0 ++ " and " ++ showBits keyID1
+  lgHere $ "The IDs of the two keys are: " ++ show keyID0 ++ " and " ++ show keyID1
 
   lgHere "Looking up the two ID's to check they exist/ have the right value."
   mVal0 <- findValue keyID0
@@ -117,7 +117,7 @@ testLookup = do
 testNeighbours :: DHT IO ()
 testNeighbours = do
   id <- askOurID
-  lgHere $ "Our ID is" ++ showBits id
+  lgHere $ "Our ID is" ++ show id
 
   lgHere "Attempt to find the neighbours of our ID"
   (ns,mn) <- findContact id

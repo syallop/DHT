@@ -13,38 +13,37 @@ ByteStrings with 'encodeMessage' and decoded to 'SomeMessage' via 'decodeSomeMes
 -}
 module DHT.Message
   (-- * Core outwards message type
-   Message (RequestMsg,ResponseMsg)
+    Message (RequestMsg,ResponseMsg)
 
   -- ** Encoding
-  ,encodeMessage
+  , encodeMessage
 
   -- ** Specialised requests
-  ,pattern PingRequestMsg
-  ,pattern StoreRequestMsg
-  ,pattern FindContactRequestMsg
-  ,pattern FindContactAtRequestMsg
-  ,pattern FindValueRequestMsg
-  ,pattern FindValueAtRequestMsg
+  , pattern PingRequestMsg
+  , pattern StoreRequestMsg
+  , pattern FindContactRequestMsg
+  , pattern FindContactAtRequestMsg
+  , pattern FindValueRequestMsg
+  , pattern FindValueAtRequestMsg
 
   -- ** Specialised responses
-  ,pattern PingResponseMsg
-  ,pattern StoreResponseMsg
-  ,pattern FindContactResponseMsg
-  ,pattern FindValueResponseMsg
+  , pattern PingResponseMsg
+  , pattern StoreResponseMsg
+  , pattern FindContactResponseMsg
+  , pattern FindValueResponseMsg
 
   -- * Core inward message type
-  ,SomeMessage(SomeMessage)
+  , SomeMessage(SomeMessage)
 
   -- ** Decoding
-  ,decodeSomeMessage
+  , decodeSomeMessage
 
   -- * Extra
-  ,showMessage
+  , showMessage
   ) where
 
 import DHT.Command
 import DHT.Contact
-import DHT.ID
 
 import Data.Binary
 import Data.Binary.Get
@@ -75,15 +74,15 @@ showMessage msg = case msg of
   RequestMsg cmd i -> "REQ " ++ show cmd ++ " " ++ case cmd of
     Ping        -> show i
     Store       -> let (keyId,msg) = i
-                      in showBits keyId ++ ":" ++ toS msg
-    FindContact -> showBits i
-    FindValue   -> showBits i
+                      in show keyId ++ ":" ++ toS msg
+    FindContact -> show i
+    FindValue   -> show i
 
   ResponseMsg cmd resp -> "RESP " ++ show cmd ++ case cmd of
     Ping        -> show resp
-    Store       -> showBits resp
-    FindContact -> let (cID,(cs,mc)) = resp in showBits cID ++ " " ++ showContacts cs ++ maybe "" (\c -> " " ++ showContact c) mc
-    FindValue   -> let (vID,(cs,mv)) = resp in showBits vID ++ " " ++ showContacts cs ++ maybe "" show mv
+    Store       -> show resp
+    FindContact -> let (cID,(cs,mc)) = resp in show cID ++ " " ++ showContacts cs ++ maybe "" (\c -> " " ++ showContact c) mc
+    FindValue   -> let (vID,(cs,mv)) = resp in show vID ++ " " ++ showContacts cs ++ maybe "" show mv
 
 -- | Encode a 'Message' to a ByteString.
 encodeMessage :: (Binary (In c), Binary (Resp c)) => Message mt mr c -> ByteString

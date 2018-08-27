@@ -11,22 +11,15 @@ module DHT.SimpleNode
   )
   where
 
-import           Control.Applicative
 import           Control.Concurrent
 import           Data.Time.Clock.POSIX
-import           Network.Socket                       (Socket,socket,Family(AF_INET),SocketType(Datagram),inet_addr,SockAddr(SockAddrInet),inet_ntoa,bind)
 import           System.Random
-import qualified Data.ByteString.Char8      as Strict
-import qualified Data.ByteString.Lazy.Char8 as Lazy
-import qualified Network.Socket.ByteString  as Strict
 
 import DHT
 import DHT.Contact
 import DHT.ID
-import DHT.Message
 import DHT.Types
 
-import DHT.SimpleNode.Logging
 import DHT.SimpleNode.Messaging
 import DHT.SimpleNode.RoutingTable
 import DHT.SimpleNode.ValueStore

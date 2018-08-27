@@ -37,6 +37,7 @@ import Prelude hiding (lookup)
 import Data.Foldable              (foldrM)
 import Data.List           hiding (insert,lookup)
 
+import DHT.Bits
 import DHT.Bucket
 import DHT.Contact
 import DHT.ID
@@ -109,25 +110,25 @@ empty maxSize ourID now = Routing maxSize ourID $ Leaf $ emptyBucket now
 
 {- INSERT -}
 -- A path down a binary tree is a bitstring
-type Path = Bits
-pattern L = False
-pattern R = True
+newtype Path = Path {_unPath :: Bits}
+pattern L = Zero
+pattern R = One
 
 -- Move left down a path
 moveL :: Path -> Path
-moveL = ( ++ [L])
+moveL (Path (Bits bs)) = Path $ Bits $ bs ++ [L]
 
 -- Move right down a path
 moveR :: Path -> Path
-moveR = ( ++ [R])
+moveR (Path (Bits bs)) = Path $ Bits $ bs ++ [R]
 
 -- Is a path moving towards the most near path (1:1:1:...)
 towardsNearest :: Path -> Bool
-towardsNearest = all (== R)
+towardsNearest (Path (Bits bs)) = all (== R) bs
 
 -- Is a target ID in the range of an ID, starting at the given Path?
 inRange :: ID -> ID -> Path -> Bool
-inRange target us path = towardsNearest path && ((== Near) . head . drop (length path) . distance target $ us)
+inRange target us path = towardsNearest path && ((== Near) . head . drop (length . _unBits . _unPath $ path) . _unBits . _unDistance . distance target $ us)
 
 -- | Insert an 'Addr'ess at a given 'Time'.
 --
@@ -141,7 +142,7 @@ insert cAddr now ping hashSize rt = finalRt
   where
     cID           = mkID cAddr hashSize
     totalDistance = distance cID $ ourRoutingID rt
-    finalTree     = insertTree totalDistance [] (_tree rt)
+    finalTree     = insertTree totalDistance (Path $ Bits []) (_tree rt)
     finalRt       = finalTree >>= \t -> return rt{_tree = t}
 
     insertTree :: Distance -> Path -> Tree -> m Tree
@@ -165,20 +166,20 @@ insert cAddr now ping hashSize rt = finalRt
                -- No contacts became bad. We can split the bucket if we're in range but otherwise
                -- the ID is dropped.
                else if inRange cID (ourRoutingID rt) pth
-                      then let (further,nearer) = split (ourRoutingID rt) (length pth) bu'
+                      then let (further,nearer) = split (ourRoutingID rt) (length . _unBits . _unPath $ pth) bu'
                               in insertTree dst pth $ Branch (Leaf further) (Leaf nearer)
                       else return $ Leaf bu'
 
-    insertTree (Near : ds) pth (Branch further nearer) = do
-      nearer' <- insertTree ds (moveR pth) nearer
+    insertTree (Distance (Bits (Near : ds))) pth (Branch further nearer) = do
+      nearer' <- insertTree (Distance (Bits ds)) (moveR pth) nearer
       return $ Branch further nearer'
 
-    insertTree (Far  : ds) pth (Branch further nearer) = do
-      further' <- insertTree ds (moveL pth) further
+    insertTree (Distance (Bits (Far  : ds))) pth (Branch further nearer) = do
+      further' <- insertTree (Distance (Bits ds)) (moveL pth) further
       return $ Branch further' nearer
 
     -- impossible
-    insertTree [] _ _ = error "insertTree: calculated distance too short"
+    insertTree (Distance (Bits [])) _ _ = error "insertTree: calculated distance too short"
     insertTree _ _ _  = error "insertTree"
 
 -- | 'insert' multiple 'Addr's at the same 'Time'.
@@ -248,15 +249,15 @@ lookup enquirerAddr targetID now hashSize rt =
 
     -- Looking for contact/ more neighbours in the Near branch if possible
     -- TODO: Maybe merge with Far branch which does the exact opposite
-    lookupTree (Near:ds) (Branch ls rs) lk =
-        let (rs',lk') = lookupTree ds rs lk
+    lookupTree (Distance (Bits (Near : ds))) (Branch ls rs) lk =
+        let (rs',lk') = lookupTree (Distance $ Bits $ ds) rs lk
            in case lk' of -- TODO: merge cases on i
 
                 -- We found it down its branch
                 Found _ _ i
                     -- but didnt collect enough neighbours anywhere below it
                     -- => we can only collect from the opposite branch
-                    | 0 < i     -> let (ls',lk'') = lookupTree ds ls lk'
+                    | 0 < i     -> let (ls',lk'') = lookupTree (Distance $ Bits $ ds) ls lk'
                                       in (Branch ls' rs',lk'')
 
                     -- and collected enough somewhere near
@@ -266,22 +267,22 @@ lookup enquirerAddr targetID now hashSize rt =
                 NotFound _ i
                     -- and we didnt collect enough neighbours around where it would have been
                     -- => we can only collect from the opposite branch
-                    | 0 < i     -> let (ls',lk'') = lookupTree ds ls lk'
+                    | 0 < i     -> let (ls',lk'') = lookupTree (Distance $ Bits $ ds) ls lk'
                                       in (Branch ls' rs',lk'')
 
                     -- but collected enough somewhere near
                     | otherwise -> (Branch ls rs', lk')
 
     -- Looking for contact/ more neighbours in the Far branch if possible
-    lookupTree (Far:ds) (Branch ls rs) lk =
-        let (ls',lk') = lookupTree ds ls lk
+    lookupTree (Distance (Bits (Far : ds))) (Branch ls rs) lk =
+        let (ls',lk') = lookupTree (Distance (Bits ds)) ls lk
            in case lk' of -- TODO: merge cases on i
 
                 -- We found it down its branch
                 Found _ _ i
                     -- but didnt collect enough neighbours anywhere below it
                     -- => we can only collect from the opposite branch
-                    | 0 < i     -> let (rs',lk'') = lookupTree ds rs lk'
+                    | 0 < i     -> let (rs',lk'') = lookupTree (Distance (Bits ds)) rs lk'
                                       in (Branch ls' rs',lk'')
 
                     -- and collected enough somewhere near
@@ -291,13 +292,13 @@ lookup enquirerAddr targetID now hashSize rt =
                 NotFound _ i
                     -- and we didnt collect enough neighbours around where it would have been
                     -- => we can only collect from the opposite branch
-                    | 0 < i     -> let (rs',lk'') = lookupTree ds rs lk'
+                    | 0 < i     -> let (rs',lk'') = lookupTree (Distance (Bits ds)) rs lk'
                                       in (Branch ls' rs',lk'')
 
                     -- but collected enough somewhere near
                     | otherwise -> (Branch ls' rs, lk')
 
-    lookupTree [] _ _ = error "lookupTree: calculated distance too short"
+    lookupTree (Distance (Bits [])) _ _ = error "lookupTree: calculated distance too short"
     lookupTree _  _ _ = error "lookupTree"
 
 -- | If there is a 'Contact' with the given 'ID', then modify it.
@@ -309,18 +310,22 @@ modify targetID cF rt = do
     totalDistance = distance targetID $ ourRoutingID rt
 
     modifyTree :: Distance -> Tree -> Maybe Tree
-    modifyTree dst t = case t of
+    modifyTree (Distance (Bits bs)) t = case t of
       Leaf bu
         -> Leaf <$> modifyBucketContact targetID cF bu
 
       Branch further nearer
-        -> case dst of
-             (Near : ds) -> do nearer' <- modifyTree ds nearer
-                               Just $ Branch further nearer'
+        -> case bs of
+             (Near : ds)
+               -> do nearer' <- modifyTree (Distance $ Bits ds) nearer
+                     Just $ Branch further nearer'
 
-             (Far  : ds) -> do further' <- modifyTree ds further
-                               Just $ Branch further' nearer
+             (Far : ds)
+               -> do further' <- modifyTree (Distance $ Bits ds) further
+                     Just $ Branch further' nearer
 
-             [] -> error "modifyTree: calculated distance too short"
-             _  -> error "modifyTree"
+             []
+               -> error "modifyTree: calculated distance too short"
+
+             _ -> error "modifyTree"
 

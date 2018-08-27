@@ -1,6 +1,7 @@
 {-# LANGUAGE
     PatternSynonyms
-   ,TypeOperators
+  , TypeOperators
+  , GeneralizedNewtypeDeriving
   #-}
 {-|
 Stability : experimental
@@ -15,83 +16,58 @@ module DHT.ID
     Bit
   , pattern Zero
   , pattern One
-  , Bits
-  , showBit
-  , showBits
-  , dist
+  , Bits (Bits)
+  , xor
   , distance
 
   , ID
   , mkID
 
-  , Distance
+  , Distance (Distance)
+  , _unDistance
   , pattern Far
   , pattern Near
 
   , toBits
   , fromBits
+
+  , lengthBits
+  , dropLeadingBits
+  , leadingBit
   ) where
 
-import Data.List
+import Data.Binary
 import Data.Hashable
-import qualified Data.Bits as B
 
--- | A binary digit
-type Bit = Bool
+import DHT.Bits
 
--- | Zero = False
-pattern Zero :: Bit
-pattern Zero = False
+-- | An ID is a string of Bits used to uniquely identify a resource.
+newtype ID = ID {_unID :: Bits}
+  deriving (Eq, Ord, Binary)
 
--- | One = True
-pattern One :: Bit
-pattern One  = True
-
--- | A string of 'Bit's.
-type Bits = [Bit]
-
--- | Convert an Int to Bits truncated to the given size.
-toBits :: Int -> Int -> Bits
-toBits i size
-  | size <= 0 = []
-  | otherwise = reverse . map (B.testBit i) $ [0..size-1]
-
--- convert Bits to an Int (assuming it doesnt overflow)
-fromBits :: Bits -> Int
-fromBits bs = foldl' (\acc (i,b) -> if b then B.setBit acc i else acc) 0 $ zip [0..(length bs)] bs
-
-showBit :: Bit -> String
-showBit b = if b then "1" else "0"
-
-showBits :: Bits -> String
-showBits = concatMap showBit
-
--- | The distance between two single Bit's is an XOR
-dist :: Bit -> Bit -> Bit
-dist x y
-  | x == y    = Zero
-  | otherwise = One
-
--- | The distance between two bitstrings is a bitstring of XORs
-distance :: Bits -> Bits -> Bits
-distance [] [] = []
-distance (x:xs) (y:ys) = x `dist` y : distance xs ys
-distance _ _ = error "distance: IDs have different length"
-
-
--- | An ID is a string of Bits used to uniquely identify a resource
-type ID = Bits
+instance Show ID where
+  show (ID bs) = show bs
 
 -- | A Hashable type can be converted to an ID of a given size.
 mkID :: Hashable a => a -> Int -> ID
-mkID h = toBits (hash h)
-
+mkID h = ID . toBits (hash h)
 
 -- | The distance between two bitstrings is a bitstring.
-type Distance = Bits
-pattern Far :: Bool
-pattern Far  = False
+newtype Distance = Distance {_unDistance :: Bits}
+  deriving (Eq,Ord)
 
-pattern Near :: Bool
-pattern Near = True
+pattern Far :: Bit
+pattern Far = Zero
+
+pattern Near :: Bit
+pattern Near = One
+
+-- | The distance between two bitstrings is a bitstring of XORs.
+distance :: ID -> ID -> Distance
+distance (ID (Bits bs0)) (ID (Bits bs1)) = Distance $ Bits $ distance' bs0 bs1
+  where
+    distance' :: [Bit] -> [Bit] -> [Bit]
+    distance' []     []     = []
+    distance' (x:xs) (y:ys) = x `xor` y : distance' xs ys
+    distance' _ _ = error "distance: IDs have different length"
 

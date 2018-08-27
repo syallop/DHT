@@ -3,42 +3,25 @@
 Stability : experimental
  -}
 module DHT.SimpleNode.Messaging
-  (newSimpleMessaging
+  ( newSimpleMessaging
   )
   where
 
 import DHT
 import DHT.Command
 import DHT.Contact
-import DHT.ID
 import DHT.Types
 
-import Control.Applicative
 import Control.Concurrent
 import Data.Typeable
 
 import qualified Data.ByteString.Char8          as Strict
 import qualified Data.ByteString.Lazy.Char8     as Lazy
 import qualified Network.Socket.ByteString      as Strict
-import qualified Network.Socket.ByteString.Lazy as Lazy
 
 import qualified Data.Map as Map
 
 import Network.Socket
-  ( Socket
-  , socket
-  , sClose
-  , connect
-  , withSocketsDo
-  , Family(AF_INET)
-  , SocketType(Datagram)
-  , inet_addr
-  , SockAddr(SockAddrInet)
-  , inet_ntoa
-  , bind
-  , setCloseOnExecIfNeeded
-  , fdSocket
-  )
 
 data MsgState = MsgState
   { -- Map response patterns waited for to MVars waiting for the corresponding message.
@@ -107,10 +90,10 @@ sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocket
             -> do let ipv4     = AF_INET
                       udp      = 17
                       udpPort  = fromInteger $ toInteger port
-                  inetAddr <- inet_addr ip
+                  (inetAddr:_) <- getAddrInfo (Just defaultHints) (Just ip) (Just $ show port)
 
                   sock <- socket ipv4 Datagram udp
-                  connect sock $ SockAddrInet udpPort inetAddr
+                  connect sock $ addrAddress inetAddr
 
                   setCloseOnExecIfNeeded $ fdSocket sock
 
@@ -183,11 +166,11 @@ recvF (MessagingState msgState) (Addr ourIP ourPort) = do
             recvF' ourSock state
   where
     recvF' ourSock state = do
-      (msg,SockAddrInet _ fromHost) <- Strict.recvFrom ourSock 10240
+      (msg,fromAddr) <- Strict.recvFrom ourSock 10240
       let (replyPortMsg,msg') = Strict.splitAt (_msgStateMaxPortLength state) msg
-      fromIP <- inet_ntoa fromHost
+      (Just fromHostname, _) <- getNameInfo [] True True fromAddr
       let replyPort = toPort replyPortMsg
-          replyAddr = Addr fromIP replyPort
+          replyAddr = Addr fromHostname replyPort
 
       return (replyAddr,Lazy.fromStrict msg')
 
@@ -195,8 +178,8 @@ recvF (MessagingState msgState) (Addr ourIP ourPort) = do
     openOurSocket state = do
       ourSock <- socket AF_INET Datagram 17
       let udpPort = fromInteger $ toInteger ourPort
-      inetAddr <- inet_addr ourIP
-      bind ourSock $ SockAddrInet udpPort inetAddr
+      inetAddr:_ <- getAddrInfo (Just defaultHints) (Just ourIP) (Just $ show ourPort)
+      bind ourSock $ addrAddress inetAddr
       return (ourSock,state{_msgStateSocketIn = Just ourSock})
 
     toPort :: Strict.ByteString -> Port

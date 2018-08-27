@@ -8,7 +8,6 @@ module DHT.SimpleNode.Logging
   ) where
 
 import Control.Concurrent
-import Control.Concurrent.Chan
 import Control.Monad
 
 import DHT

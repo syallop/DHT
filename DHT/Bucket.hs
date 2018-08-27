@@ -61,7 +61,6 @@ lastUsed = _lastUsed
 bucketSize :: Bucket -> Int
 bucketSize (Bucket _ cs) = length cs
 
-
 -- | Update the lastUsed time if later.
 useBucket :: Time -> Bucket -> Bucket
 useBucket now (Bucket lu cs) = Bucket (if now > lu then now else lu) cs
@@ -69,7 +68,7 @@ useBucket now (Bucket lu cs) = Bucket (if now > lu then now else lu) cs
 -- | Split a Bucket by the distance bit at a given depth
 split :: ID -> Int -> Bucket -> (Bucket,Bucket)
 split ourID depth (Bucket t cs) =
-  let (further,nearer) = partition (\(Contact cID _ _) -> (== Far) . head . drop depth . distance cID $ ourID) cs
+  let (further,nearer) = partition (\(Contact cID _ _) -> (== Far) . leadingBit . dropLeadingBits depth . _unDistance . distance cID $ ourID) cs
      in (Bucket t further,Bucket t nearer)
 
 -- | Enter a new Contact into a Bucket. Mark the Bucket as fresh, the Contact is assumed to be Good.

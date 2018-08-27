@@ -16,7 +16,6 @@ import DHT.ID
 import DHT.Routing
 import DHT.Types
 
-import Control.Applicative hiding (empty)
 import Control.Concurrent
 
 type RTState = MVar Routing
