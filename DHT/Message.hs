@@ -42,6 +42,7 @@ module DHT.Message
   , showMessage
   ) where
 
+import DHT.Address
 import DHT.Command
 import DHT.Contact
 
@@ -56,7 +57,7 @@ import Data.String.Conv
 -- or a sent Response to some issued Request (along with a 'Resp' value, to an Addr and with no output)
 --
 -- Messages types tag:
---  - mt - the target of the message (Addr,Either () Addr)
+--  - mt - the target of the message (Address,Either () Addr)
 --  - mr - the response type (Out c/ ())
 --  - c  - the command name
 data Message mt mr c where
@@ -64,7 +65,7 @@ data Message mt mr c where
                 -> Message (Target c) (Out c) c
 
     ResponseMsg :: Command c -> Resp c
-                -> Message Addr       ()      c
+                -> Message Address    ()      c
 
 instance Show (Message mt mr c) where
   show = showMessage

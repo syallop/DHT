@@ -69,6 +69,7 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.List                  ((\\),nub)
 import Data.Typeable
 
+import DHT.Address
 import DHT.Command
 import DHT.Contact
 import DHT.ID
@@ -80,10 +81,10 @@ import DHT.Op
 {- DHT configuration components -}
 -- | DHT configuration
 data DHTConfig dht m = DHTConfig
-  { _dhtConfigOps           :: DHTOp dht m -- ^ The operations we require to implement the DHT
-  , _dhtConfigAddr          :: Addr        -- ^ Our address
-  , _dhtConfigHashSize      :: Int         -- ^ How many bits to use in hashed ID's
-  , _dhtConfigBootstrapAddr :: Maybe Addr  -- ^ Address to bootstrap from
+  { _dhtConfigOps           :: DHTOp dht m   -- ^ The operations we require to implement the DHT
+  , _dhtConfigAddr          :: Address       -- ^ Our address
+  , _dhtConfigHashSize      :: Int           -- ^ How many bits to use in hashed ID's
+  , _dhtConfigBootstrapAddr :: Maybe Address -- ^ Address to bootstrap from
   }
 
 -- | The DHTState is threaded through 'DHT' computations and contains the
@@ -147,7 +148,7 @@ askOurID :: Monad m => DHT m ID
 askOurID = DHT (succeed . _dhtStateID)
 
 -- | Our own address.
-askOurAddr :: Monad m => DHT m Addr
+askOurAddr :: Monad m => DHT m Address
 askOurAddr = _dhtConfigAddr <$> ask
 
 -- | The Hash Size used for keys.
@@ -155,7 +156,7 @@ askHashSize :: Monad m => DHT m Int
 askHashSize = _dhtConfigHashSize <$> ask
 
 -- | A Possible bootstrap address.
-askBootstrapAddr :: Monad m => DHT m (Maybe Addr)
+askBootstrapAddr :: Monad m => DHT m (Maybe Address)
 askBootstrapAddr = _dhtConfigBootstrapAddr <$> ask
 
 -- ask for the messaging system
@@ -206,7 +207,7 @@ routeResponse :: (Monad m,Functor m,Typeable (Out c)) => Command c -> Resp c -> 
 routeResponse cmd resp = askMessagingOp >>= \msgsys -> liftDHT $ _messagingOpRouteResponse msgsys cmd resp
 
 -- send a bytestring to an address
-sendBytes :: (Monad m,Functor m) => Addr -> ByteString -> DHT m ()
+sendBytes :: (Monad m,Functor m) => Address -> ByteString -> DHT m ()
 sendBytes tAddr bs = askMessagingOp >>= \msgsys -> liftDHT $ _messagingOpSendBytes msgsys tAddr bs
 
 -- Send a (request/ response) Message, waiting for a response if we sent a request
@@ -216,7 +217,7 @@ sendMessage :: (Monad m,Functor m
                ,Binary (Resp c)
                ,Typeable r
                )
-            => Addr -> Message t r c -> DHT m r
+            => Address -> Message t r c -> DHT m r
 sendMessage tAddr msg = do
   let msgBs = encodeMessage msg
   case msg of
@@ -231,14 +232,14 @@ sendMessage tAddr msg = do
 
 
 -- receive a bytestring on the DHTs address. Note the sender.
-recvBytes :: Monad m => DHT m (Addr,ByteString)
+recvBytes :: Monad m => DHT m (Address,ByteString)
 recvBytes = do
   msgSys <- askMessagingOp
   addr   <- askOurAddr
   liftDHT $ _messagingOpRecvBytes msgSys addr
 
 -- receive SomeMessage on the DHTs address. Note the sender.
-recvMessage :: Monad m => DHT m (Maybe (Addr,SomeMessage))
+recvMessage :: Monad m => DHT m (Maybe (Address,SomeMessage))
 recvMessage = do
   (sender,bs) <- recvBytes
   let mMsg = decodeSomeMessage bs
@@ -277,7 +278,7 @@ recvAndHandleMessages = do
 
 -- insert a contact address into the routing table
 -- LOCAL
-insertAddr :: (Monad m,Functor m) => Addr -> DHT m ()
+insertAddr :: (Monad m,Functor m) => Address -> DHT m ()
 insertAddr cAddr = do
   now          <- timeNow
   routingTable <- askRoutingTableOp
@@ -285,7 +286,7 @@ insertAddr cAddr = do
 
 -- insert multiple contact addresses into the routing table, all at the same time
 -- LOCAL
-insertAddrs :: (Monad m,Functor m) => [Addr] -> DHT m ()
+insertAddrs :: (Monad m,Functor m) => [Address] -> DHT m ()
 insertAddrs cAddrs = do
   now          <- timeNow
   routingTable <- askRoutingTableOp
@@ -294,7 +295,7 @@ insertAddrs cAddrs = do
 
 -- attempt lookup of a contact with the given ID. Also return the k closest Contacts
 -- LOCAL
-lookupContact :: (Monad m,Functor m) => Addr -> ID -> DHT m ([Contact],Maybe Contact)
+lookupContact :: (Monad m,Functor m) => Address -> ID -> DHT m ([Contact],Maybe Contact)
 lookupContact enquirerAddr targetID = do
   now          <- timeNow
   routingTable <- askRoutingTableOp
@@ -327,16 +328,16 @@ lg s = askLoggingOp >>= liftDHT . maybe (return ()) ($ s)
 
 {- DHT Operations on the networked DHT -}
 
--- | Send a ping to an 'Addr'ess.
-ping :: (Monad m,Functor m) => Addr -> DHT m ()
+-- | Send a ping to an 'Addres's.
+ping :: (Monad m,Functor m) => Address -> DHT m ()
 ping tAddr = randomInt >>= \i -> pingThis i tAddr
 
--- | Send a ping to all the 'Addr'esses
-pingAll :: (Monad m,Functor m) => [Addr] -> DHT m ()
+-- | Send a ping to all the 'Address'es
+pingAll :: (Monad m,Functor m) => [Address] -> DHT m ()
 pingAll = mapM_ ping
 
--- | Send a ping with a specific Int to an 'Addr'ess.
-pingThis :: (Monad m,Functor m) => Int -> Addr -> DHT m ()
+-- | Send a ping with a specific Int to an 'Address'.
+pingThis :: (Monad m,Functor m) => Int -> Address -> DHT m ()
 pingThis i tAddr = do
   j <- sendMessage tAddr $ PingRequestMsg i
   unless (i == j) invalidResponse
@@ -363,7 +364,7 @@ store key val = do
   return keyID
 
 -- Store a ByteString value at the given 'Addr'ess.
-storeAt :: (Monad m,Functor m) => ID -> ByteString -> Addr -> DHT m ID
+storeAt :: (Monad m,Functor m) => ID -> ByteString -> Address -> DHT m ID
 storeAt keyID val tAddr = do
   -- actualKeyID should be equal to the keyId we requested storage at
   let msg = StoreRequestMsg keyID val
@@ -476,7 +477,7 @@ bootstrap = do
       -> bootstrapFrom bootstrapAddr
 
 -- | Bootstrap against a bootstrap address.
-bootstrapFrom :: (Monad m,Functor m) => Addr -> DHT m ()
+bootstrapFrom :: (Monad m,Functor m) => Address -> DHT m ()
 bootstrapFrom bAddr = do
   -- TODO: Maybe check they exist or respond to messages first?
   insertAddr bAddr
@@ -519,7 +520,7 @@ handleMessage :: (Monad m,Functor m
                  ,Typeable (Out c)
                  ,Show (Resp c)
                  )
-              => Addr -> Message mt mr c -> DHT m ()
+              => Address -> Message mt mr c -> DHT m ()
 handleMessage enquirerAddr msg = do
   insertAddr enquirerAddr
   case msg of

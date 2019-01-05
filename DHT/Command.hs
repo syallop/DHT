@@ -12,7 +12,7 @@ Model the commands a dht must be able to handle and issue.
 'Commands' are singletons indexed by a unique (c::CMD) type.
 
 Closed type functions determine for each cmd type:
-- Target: Either targeted at individual Addrs or the DHT as a whole
+- Target: Either targeted at individual Address's or the DHT as a whole
 - In: Input to a command.
 - Out: Expected output.
 - Resp: The type required to respond to a recieved command such that the sender can recognise it and extract the Out
@@ -33,6 +33,7 @@ module DHT.Command
 import Data.Function
 
 import DHT.Contact
+import DHT.Address
 import DHT.ID
 
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -75,14 +76,14 @@ instance Show (Command c) where
     FindContact -> "FindContact"
     FindValue -> "FindValue"
 
--- | The Target of a 'CMD' is either typed 'Addr', indicating it is sent to a specific Address
--- or it is typed 'Either () Addr' indicating it may be targeted at the DHT as a whole ( () ) as well
+-- | The Target of a 'CMD' is either typed 'Address', indicating it is sent to a specific Address
+-- or it is typed 'Either () Address' indicating it may be targeted at the DHT as a whole ( () ) as well
 -- as at a specific Address.
 type family Target (cmd :: CMD) where
-    Target 'PING        = Addr
-    Target 'STORE       = Addr
-    Target 'FINDVALUE   = Either () Addr
-    Target 'FINDCONTACT = Either () Addr
+    Target 'PING        = Address
+    Target 'STORE       = Address
+    Target 'FINDVALUE   = Either () Address
+    Target 'FINDCONTACT = Either () Address
 
 -- | A 'CMD' has an input when sent.
 type family In (cmd :: CMD) where

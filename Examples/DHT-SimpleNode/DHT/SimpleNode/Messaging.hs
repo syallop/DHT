@@ -8,6 +8,7 @@ module DHT.SimpleNode.Messaging
   where
 
 import DHT
+import DHT.Address
 import DHT.Command
 import DHT.Contact
 import DHT.Types
@@ -28,7 +29,7 @@ data MsgState = MsgState
    _msgStateReplyMap   :: forall c. Map.Map RespPat (MVar SomeOut)
 
   -- Map each Address we've established contact with to its outgoing socket.
-  ,_msgStateSocketsOut :: Map.Map Addr Socket
+  ,_msgStateSocketsOut :: Map.Map Address Socket
 
   -- Socket we're listening on, if it's created
   ,_msgStateSocketIn   :: Maybe Socket
@@ -65,24 +66,42 @@ newSimpleMessaging size (maxPortLength,ourPort) = do
     newMessagingState = do m <- newMVar $ MsgState Map.empty Map.empty Nothing maxPortLength
                            return $ MessagingState m
 
+-- | We only know how to message IPV4 UDP. Attempt to extract such an address.
+extractIPV4UDP :: Address -> Maybe (IP, Port)
+extractIPV4UDP address = case parts address of
+  [IPV4 ip, UDP port]
+    -> Just (ip, port)
+
+  _ -> Nothing
+
 -- Physically send bytes to the given address.
 -- Reuse sockets if we've contacted the address before.
-sendF :: MessagingState -> (Int, Port) -> Addr -> Lazy.ByteString -> IO ()
-sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocketsDo $ modifyMessagingState messagingState $ \state -> do
-  (sock,state') <- initialiseSocket state
+sendF
+  :: MessagingState
+  -> (Int, Port)
+  -> Address
+  -> Lazy.ByteString
+  -> IO ()
+sendF messagingState (maxPortLength,ourPort) address bs = case extractIPV4UDP address of
+  Nothing
+    -> fail "Asked to send a message to a non IPV4 UDP address - which is the only supported address type"
 
-  nBytes <- Strict.send sock (padPort ourPort `Strict.append` (Lazy.toStrict bs))
+  Just (ip, port)
+    -> withSocketsDo $ modifyMessagingState messagingState $ \state -> do
+        (sock,state') <- initialiseSocket state ip port
 
-  -- TODO:
-  {-if fromIntegral nBytes == (fromIntegral $ Lazy.length bs) + (fromIntegral $ Strict.length (padPort ourPort))-}
-    {-then return ()-}
-    {-else fail "SENT TOO LITTLE BYTES"-}
+        nBytes <- Strict.send sock (padPort ourPort `Strict.append` (Lazy.toStrict bs))
 
-  return (state',())
+        -- TODO:
+        {-if fromIntegral nBytes == (fromIntegral $ Lazy.length bs) + (fromIntegral $ Strict.length (padPort ourPort))-}
+          {-then return ()-}
+          {-else fail "SENT TOO LITTLE BYTES"-}
+
+        return (state',())
   where
     -- If we dont know of an address, open a new socket and cache it, otherwise return the one in use.
-    initialiseSocket state = do
-      case Map.lookup addr $ _msgStateSocketsOut state of
+    initialiseSocket state ip port = do
+      case Map.lookup address $ _msgStateSocketsOut state of
           Just sock
             -> return (sock,state)
 
@@ -97,7 +116,7 @@ sendF messagingState (maxPortLength,ourPort) addr@(Addr ip port) bs = withSocket
 
                   setCloseOnExecIfNeeded $ fdSocket sock
 
-                  return (sock, state{_msgStateSocketsOut = Map.insert addr sock $ _msgStateSocketsOut state})
+                  return (sock, state{_msgStateSocketsOut = Map.insert address sock $ _msgStateSocketsOut state})
 
     -- given a Port (represented by an Int), pad it with the appropriate number of leading zeros
     -- such that it is as long as the provided 'maxPortLength'
@@ -152,26 +171,29 @@ routeF messagingState cmd resp = do
 -- Receive a message from a sending DHT. Either a request or a response to a
 -- request we made.
 recvF :: MessagingState -> RecvF IO
-recvF (MessagingState msgState) (Addr ourIP ourPort) = do
-  state <- takeMVar msgState
-  case _msgStateSocketIn state of
-    -- We havnt initialised our incoming socket
-    Nothing
-      -> do (ourSock,state') <- openOurSocket state
-            putMVar msgState state'
-            recvF' ourSock state
+recvF (MessagingState msgState) address = case extractIPV4UDP address of
+  Nothing
+    -> fail "Asked to receive from non IPV4 UDP address - which is the only type supported"
 
-    Just ourSock
-      -> do putMVar msgState state
-            recvF' ourSock state
+  Just (ourIP, ourPort)
+    -> do state <- takeMVar msgState
+          case _msgStateSocketIn state of
+            -- We havnt initialised our incoming socket
+            Nothing
+              -> do (ourSock,state') <- openOurSocket state
+                    putMVar msgState state'
+                    recvF' ourSock state
+
+            Just ourSock
+              -> do putMVar msgState state
+                    recvF' ourSock state
   where
     recvF' ourSock state = do
       (msg,fromAddr) <- Strict.recvFrom ourSock 10240
       let (replyPortMsg,msg') = Strict.splitAt (_msgStateMaxPortLength state) msg
       (Just fromHostname, _) <- getNameInfo [] True True fromAddr
       let replyPort = toPort replyPortMsg
-          replyAddr = Addr fromHostname replyPort
-
+          replyAddr = fromParts [IPV4 fromHostname, UDP replyPort]
       return (replyAddr,Lazy.fromStrict msg')
 
 

@@ -8,8 +8,7 @@ Stability : experimental
 Record contact information for a DHT speaking node.
  -}
 module DHT.Contact
-  ( Addr(..)
-  , Goodness(..)
+  ( Goodness(..)
   , Contact(..)
 
   , showContact
@@ -17,24 +16,12 @@ module DHT.Contact
   ) where
 
 import DHT.ID
-import DHT.Types
+import DHT.Address
 
 import Data.Binary
-import Data.Hashable
 import Data.Typeable
 import Data.List
 import GHC.Generics
-
--- | The address at which a contact can be found
-data Addr = Addr IP Port
-  deriving (Show,Read,Eq,Ord,Generic)
-instance Binary Addr
-
-instance Hashable Addr where
-  hashWithSalt s (Addr ip port) = s `hashWithSalt` ip `hashWithSalt` port
-
-showAddr :: Addr -> String
-showAddr (Addr ip port) = ip ++ "::" ++ show port
 
 -- | How good we consider a contact to be.
 data Goodness
@@ -53,7 +40,7 @@ instance Binary Goodness
 -- | A contact has an address and an ID we know them by along with a 'Goodness' ranking.
 data Contact = Contact
   {_ID       :: ID
-  ,_addr     :: Addr
+  ,_addr     :: Address
   ,_goodness :: Goodness
   }
   deriving (Show, Ord, Generic, Typeable)
@@ -64,7 +51,7 @@ instance Eq Contact where
   (Contact id0 _ _) == (Contact id1 _ _) = id0 == id1
 
 showContact :: Contact -> String
-showContact (Contact i addr _) = concat ["<",show i,"@",showAddr addr,">"]
+showContact (Contact i addr _) = concat ["<",show i,"@",show addr,">"]
 
 showContacts :: [Contact] -> String
 showContacts []     = "{}"

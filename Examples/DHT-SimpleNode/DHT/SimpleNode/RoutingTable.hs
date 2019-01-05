@@ -11,6 +11,7 @@ module DHT.SimpleNode.RoutingTable
 import Prelude hiding (insert,lookup)
 
 import DHT
+import DHT.Address
 import DHT.Contact
 import DHT.ID
 import DHT.Routing

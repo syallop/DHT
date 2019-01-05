@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     DHT
+                     , DHT.Address
                      , DHT.Bits
                      , DHT.Bucket
                      , DHT.Command

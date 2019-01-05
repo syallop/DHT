@@ -37,6 +37,7 @@ import Prelude hiding (lookup)
 import Data.Foldable              (foldrM)
 import Data.List           hiding (insert,lookup)
 
+import DHT.Address
 import DHT.Bits
 import DHT.Bucket
 import DHT.Contact
@@ -130,14 +131,14 @@ towardsNearest (Path (Bits bs)) = all (== R) bs
 inRange :: ID -> ID -> Path -> Bool
 inRange target us path = towardsNearest path && ((== Near) . head . drop (length . _unBits . _unPath $ path) . _unBits . _unDistance . distance target $ us)
 
--- | Insert an 'Addr'ess at a given 'Time'.
+-- | Insert an 'Address' at a given 'Time'.
 --
--- - If the Addr is along a near path the 'Contact' will be inserted even if it requires the 'Bucket' be split.
--- - If the Addr is far away and we already have a full 'Bucket' of similarly far neighbours:
+-- - If the Address is along a near path the 'Contact' will be inserted even if it requires the 'Bucket' be split.
+-- - If the Address is far away and we already have a full 'Bucket' of similarly far neighbours:
 --   - If there is a Bad Contact then it will replace it
 --   - If there are any Questionable Contacts then they will be updated with the given ping function one by one. If one becomes Bad it will be replaced,
 --     otherwise the inserted Contact is not inserted.
-insert :: forall m. Monad m => Addr -> Time -> (Addr -> m Bool) -> Int -> Routing -> m Routing
+insert :: forall m. Monad m => Address -> Time -> (Address -> m Bool) -> Int -> Routing -> m Routing
 insert cAddr now ping hashSize rt = finalRt
   where
     cID           = mkID cAddr hashSize
@@ -182,8 +183,8 @@ insert cAddr now ping hashSize rt = finalRt
     insertTree (Distance (Bits [])) _ _ = error "insertTree: calculated distance too short"
     insertTree _ _ _  = error "insertTree"
 
--- | 'insert' multiple 'Addr's at the same 'Time'.
-inserts :: Monad m => [Addr] -> Time -> (Addr -> m Bool) -> Int -> Routing -> m Routing
+-- | 'insert' multiple 'Address' at the same 'Time'.
+inserts :: Monad m => [Address] -> Time -> (Address -> m Bool) -> Int -> Routing -> m Routing
 inserts cAddrs now ping hashSize rt = foldrM (\cAddr accRt -> insert cAddr now ping hashSize accRt) rt cAddrs
 
 -- sort a list of Contact's by their distance to an ID
@@ -208,7 +209,7 @@ data Lookup
 
 -- | Lookup the 'Contact' of the target 'ID' and the nearest neighbour Contacts
 -- Accessed 'Bucket's are updated.
-lookup :: Addr -> ID -> Time -> Int -> Routing -> (Routing,([Contact], Maybe Contact))
+lookup :: Address -> ID -> Time -> Int -> Routing -> (Routing, ([Contact], Maybe Contact))
 lookup enquirerAddr targetID now hashSize rt =
   let (finalTree,lk) = lookupTree totalDistance (_tree rt) (NotFound [] size)
       rt' = rt{_tree = finalTree}

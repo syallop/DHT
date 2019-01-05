@@ -9,11 +9,12 @@ Exports RoutingTableOp which encapsulates the operations we must know how to per
 in order to maintain routing contacts.
  -}
 module DHT.Op.RoutingTable
-  (RoutingTableOp(..)
-  ,RTInsertF
-  ,RTLookupF
+  ( RoutingTableOp(..)
+  , RTInsertF
+  , RTLookupF
   ) where
 
+import DHT.Address
 import DHT.Contact
 import DHT.ID
 import DHT.Types
@@ -25,9 +26,9 @@ data RoutingTableOp dht m = RoutingTableOp
     , _routingTableOpKSize  :: m Int       -- ^ Query the bucket size/ how many neighbours we expect to get back
     }
 
--- | Insert an 'Addr'ess at a 'Time'. Ping Questionable Contacts with the given function if needed.
-type RTInsertF dht m = Addr -> Time -> (Addr -> dht m Bool) -> dht m ()
+-- | Insert an 'Address' at a 'Time'. Ping Questionable Contacts with the given function if needed.
+type RTInsertF dht m = Address -> Time -> (Address -> dht m Bool) -> dht m ()
 
 -- | Lookup an 'Addr'ess and neighbouring Contacts to an 'ID' in 'm'.
-type RTLookupF m = Addr -> ID -> Time -> m ([Contact],Maybe Contact)
+type RTLookupF m = Address -> ID -> Time -> m ([Contact], Maybe Contact)
 
