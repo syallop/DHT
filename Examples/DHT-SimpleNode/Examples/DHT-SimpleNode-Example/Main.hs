@@ -5,6 +5,7 @@ import DHT.SimpleNode
 import DHT.SimpleNode.Logging
 
 import DHT
+import DHT.Address
 import DHT.Bucket
 import DHT.ID
 import DHT.Contact
@@ -27,8 +28,8 @@ forkVoid m = forkIO $ void m
 forkVoid_ :: IO a -> IO ()
 forkVoid_ m = void (forkVoid m)
 
-bootstrapAddr :: Addr
-bootstrapAddr = Addr "127.0.0.1" 6471
+bootstrapAddr :: Address
+bootstrapAddr = fromParts (IPV4 "127.0.0.1") [UDP 6471]
 
 idle :: DHT IO a
 idle = liftDHT $ forever $ threadDelay 5000000
@@ -148,7 +149,7 @@ main = do
 
       -- Make the config for one of our test nodes at a given addr
       -- Decide whether to bootstrap off the designated bootstrap address.
-      mkConfig :: Addr -> Bool -> IO (DHTConfig DHT IO)
+      mkConfig :: Address -> Bool -> IO (DHTConfig DHT IO)
       mkConfig ourAddr shouldBootstrap
         = let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
              in mkSimpleNodeConfig ourAddr hashSize mLogging mBootstrapAddr
@@ -161,7 +162,7 @@ main = do
       run :: String    -- Test name
           -> Int       -- Delay before executing
           -> Bool      -- Whether to bootstrap of the hardcoded bootstrapAddr
-          -> Addr      -- Nodes own address.
+          -> Address   -- Nodes own address.
           -> DHT IO a  -- DHT computation to execute
           -> IO ()
       run testName startDelay shouldBootstrap ourAddr dhtProgram
@@ -176,16 +177,16 @@ main = do
 
   -- Create several other nodes.
   forM [6472 .. 6480] $ \port -> do let name = ("bootstrap" <> show port)
-                                    run name 0 True (Addr "127.0.0.1" port) $ doNothing name
+                                    run name 0 True (fromParts (IPV4 "127.0.0.1") [UDP port]) $ doNothing name
                                     delay 1
   -- Test storing and retrieving a value
-  run "testStore" 1 True (Addr "127.0.0.1" 6481) testStore
+  run "testStore" 1 True (fromParts (IPV4 "127.0.0.1") [UDP 6481]) testStore
 
   -- Test looking up a value WE didnt store
-  run "testLookup" 5 True (Addr "127.0.0.1" 6482) testLookup
+  run "testLookup" 5 True (fromParts (IPV4 "127.0.0.1") [UDP 6482]) testLookup
 
   -- Test neighbour lookup
-  run "testNeighbours" 8 True (Addr "127.0.0.1" 6483) testNeighbours
+  run "testNeighbours" 8 True (fromParts (IPV4 "127.0.0.1") [UDP 6483]) testNeighbours
 
   delay 10
   return ()

@@ -23,7 +23,7 @@ type RTState = MVar Routing
 
 -- Insert a new address into the routingtable, pinging questionable nodes with
 -- the ping function to update them if required.
-rtInsert :: RTState -> Addr -> Time -> (Addr -> DHT IO Bool) -> DHT IO ()
+rtInsert :: RTState -> Address -> Time -> (Address -> DHT IO Bool) -> DHT IO ()
 rtInsert rtState addr time ping = do
   rt  <- liftDHT $ takeMVar rtState
 
@@ -34,7 +34,7 @@ rtInsert rtState addr time ping = do
 
 -- Lookup the Contact associated with an 'ID', also return k neighbour contacts
 -- relative from the enquiring Addr.
-rtLookup :: RTState -> Addr -> ID -> Time -> Int -> IO ([Contact],Maybe Contact)
+rtLookup :: RTState -> Address -> ID -> Time -> Int -> IO ([Contact],Maybe Contact)
 rtLookup rtState enquirerAddr targetID now hashSize = do
   rt <- takeMVar rtState
   let (rt',res) = lookup enquirerAddr targetID now hashSize rt

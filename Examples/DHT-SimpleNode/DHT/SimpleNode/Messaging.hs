@@ -49,19 +49,17 @@ modifyMessagingState (MessagingState msgState) f = modifyMVar msgState f
 -- all messages have a preceding 'replyport' padded to the given maximum port length.
 -- - Routes and waits on messages using MVars and a notion of pattern matching (rather than, for
 -- example including 'unique' tokens in sent messages).
-newSimpleMessaging :: Int -> (Int,Port) -> IO (MessagingOp IO)
-newSimpleMessaging size (maxPortLength,ourPort) = do
-  messagingState <- newMessagingState
+newSimpleMessaging :: Int -> (Int,Address) -> IO (MessagingOp IO)
+newSimpleMessaging size (maxPortLength,ourAddress) = do
+  let Just (_, ourPort) = extractIPV4UDP ourAddress
 
-  return $ mkMessaging messagingState
+  msgState <- newMessagingState
+
+  return $ MessagingOp (waitF msgState size)
+                       (routeF msgState)
+                       (sendF msgState (maxPortLength,ourPort))
+                       (recvF msgState)
   where
-    mkMessaging :: MessagingState -> MessagingOp IO
-    mkMessaging msgState = MessagingOp (waitF msgState size)
-                                       (routeF msgState)
-                                       (sendF msgState (maxPortLength,ourPort))
-                                       (recvF msgState)
-
-
     newMessagingState :: IO MessagingState
     newMessagingState = do m <- newMVar $ MsgState Map.empty Map.empty Nothing maxPortLength
                            return $ MessagingState m
@@ -187,25 +185,25 @@ recvF (MessagingState msgState) address = case extractIPV4UDP address of
             Just ourSock
               -> do putMVar msgState state
                     recvF' ourSock state
-  where
-    recvF' ourSock state = do
-      (msg,fromAddr) <- Strict.recvFrom ourSock 10240
-      let (replyPortMsg,msg') = Strict.splitAt (_msgStateMaxPortLength state) msg
-      (Just fromHostname, _) <- getNameInfo [] True True fromAddr
-      let replyPort = toPort replyPortMsg
-          replyAddr = fromParts [IPV4 fromHostname, UDP replyPort]
-      return (replyAddr,Lazy.fromStrict msg')
+    where
+      recvF' ourSock state = do
+        (msg,fromAddr) <- Strict.recvFrom ourSock 10240
+        let (replyPortMsg,msg') = Strict.splitAt (_msgStateMaxPortLength state) msg
+        (Just fromHostname, _) <- getNameInfo [] True True fromAddr
+        let replyPort = toPort replyPortMsg
+            replyAddr = fromParts (IPV4 fromHostname) [UDP replyPort]
+        return (replyAddr,Lazy.fromStrict msg')
 
 
-    openOurSocket state = do
-      ourSock <- socket AF_INET Datagram 17
-      let udpPort = fromInteger $ toInteger ourPort
-      inetAddr:_ <- getAddrInfo (Just defaultHints) (Just ourIP) (Just $ show ourPort)
-      bind ourSock $ addrAddress inetAddr
-      return (ourSock,state{_msgStateSocketIn = Just ourSock})
+      openOurSocket state = do
+        ourSock <- socket AF_INET Datagram 17
+        let udpPort = fromInteger $ toInteger ourPort
+        inetAddr:_ <- getAddrInfo (Just defaultHints) (Just ourIP) (Just $ show ourPort)
+        bind ourSock $ addrAddress inetAddr
+        return (ourSock,state{_msgStateSocketIn = Just ourSock})
 
-    toPort :: Strict.ByteString -> Port
-    toPort = read . Strict.unpack
+      toPort :: Strict.ByteString -> Port
+      toPort = read . Strict.unpack
 
 data SomeOut = forall c. Typeable (Out c) => SomeOut (Command c) (Out c)
   deriving Typeable

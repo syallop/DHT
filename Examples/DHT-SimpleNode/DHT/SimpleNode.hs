@@ -31,13 +31,13 @@ mkSimpleNodeConfig
   :: Address
   -> Int
   -> LoggingOp IO
-  -> Maybe Addr
+  -> Maybe Address
   -> IO (DHTConfig DHT IO)
 mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
   now          <- timeF
   routingTable <- newSimpleRoutingTable maxBucketSize ourID now hashSize
   valueStore   <- newSimpleValueStore
-  messaging    <- newSimpleMessaging hashSize (maxPortLength,ourPort)
+  messaging    <- newSimpleMessaging hashSize (maxPortLength,ourAddr)
 
   let ops = DHTOp { _dhtOpTimeOp         = timeF
                   , _dhtOpRandomIntOp    = randF
@@ -54,7 +54,6 @@ mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
     randF :: IO Int
     randF = randomRIO (0,maxBound)
 
-    Addr ourIP ourPort = ourAddr
     ourID = mkID ourAddr hashSize
 
     maxPortLength = 5
