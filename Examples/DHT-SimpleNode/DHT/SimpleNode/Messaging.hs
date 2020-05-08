@@ -111,9 +111,7 @@ sendF messagingState (maxPortLength,ourPort) address bs = case extractIPV4UDP ad
 
                   sock <- socket ipv4 Datagram udp
                   connect sock $ addrAddress inetAddr
-
-                  setCloseOnExecIfNeeded $ fdSocket sock
-
+                  setCloseOnExecIfNeeded <$> unsafeFdSocket sock
                   return (sock, state{_msgStateSocketsOut = Map.insert address sock $ _msgStateSocketsOut state})
 
     -- given a Port (represented by an Int), pad it with the appropriate number of leading zeros
