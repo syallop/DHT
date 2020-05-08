@@ -1,10 +1,9 @@
-resolver: lts-9.18
+resolver: lts-15.11
 
 packages:
 - '.'
 - '../../'
 extra-deps:
-- network-2.7.0.2
 
 flags: {}
 
