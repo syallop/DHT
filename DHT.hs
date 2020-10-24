@@ -66,7 +66,7 @@ import Control.Arrow              (first)
 import Control.Monad
 import Data.Binary
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Data.List                  ((\\),nub)
+import Data.List                  ((\\),nub,intercalate)
 import Data.Typeable
 
 import DHT.Address
@@ -353,14 +353,29 @@ store key val = do
   let cts  = case res of
                (cs,Just c)  -> c:cs
                (cs,Nothing) -> cs
-  _ids <- mapM (storeAt keyID val . _addr) cts
 
-  -- TODO: Although its likely the messaging system wont even return to us non-matching ID's
-  -- it is permitted to act that way. Therefore we should check that all ID's are the same (and
-  -- correct). Bad contacts should then be marked.
-  --
-  -- TODO: We may have an empty list of targets to store at, perhaps it should be indicated/ an error
-  -- if we don't even attempt to store anything?
+  -- TODO: If the list of targets to store at is empty we should probably
+  -- indicate this in the return value?
+  when (cts == [])
+    . lg
+    . mconcat
+    $ ["WARN: Found no contacts to store key: "
+      , show key
+      , " with id "
+      , show keyID
+      ]
+
+  -- TODO: If the messaging system has returned non-matching ID's in
+  -- acknowledgment, we should mark the culprits as bad contacts/ surface an
+  -- error.
+  ids <- mapM (storeAt keyID val . _addr) cts
+  let unexpectedIDs = filter (/= keyID) ids
+  when (not . (== []) $ unexpectedIDs)
+       $ lg . (("When storing id " <> show key <> " some contacts returned incorrect ids: ") <>)
+            . intercalate ","
+            . map show
+            $ unexpectedIDs
+
   return keyID
 
 -- Store a ByteString value at the given 'Addr'ess.
