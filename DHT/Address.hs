@@ -21,7 +21,6 @@ import DHT.Types
 import Data.Binary
 import Data.Hashable
 import GHC.Generics
-import Data.Monoid
 
 -- | A single component of an address.
 data AddressPart
@@ -87,6 +86,7 @@ instance Show Address where
     AddressThen part thenAddr
       -> show part <> ">" <> show thenAddr
 
+-- | Break an Address into a (non-empty) sequence of it's AddressParts.
 parts :: Address -> [AddressPart]
 parts address = case address of
   Address part
@@ -95,6 +95,7 @@ parts address = case address of
   AddressThen part thenAddress
     -> part : parts thenAddress
 
+-- | Construct an Address from a (non-empty) sequence of it's AddressParts.
 fromParts :: AddressPart -> [AddressPart] -> Address
 fromParts part1 parts = case parts of
   []
