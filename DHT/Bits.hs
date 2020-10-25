@@ -2,6 +2,7 @@
     PatternSynonyms
   , TypeOperators
   , GeneralizedNewtypeDeriving
+  , DeriveGeneric
   #-}
 {-|
 Stability : experimental
@@ -35,9 +36,12 @@ import Data.Binary
 import Data.List
 import qualified Data.Bits as B
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
+
 -- | A binary digit.
 newtype Bit = Bit {_unBit :: Bool}
-  deriving (Eq, Ord, Binary)
+  deriving (Eq, Ord, Binary, Generic, NFData)
 
 instance Show Bit where
   show (Bit False) = "0"
@@ -53,7 +57,7 @@ pattern One = Bit True
 
 -- | A string of 'Bit's.
 newtype Bits = Bits {_unBits :: [Bit]}
-  deriving (Eq, Ord, Binary)
+  deriving (Eq, Ord, Binary, Generic, NFData)
 
 instance Show Bits where
   show (Bits bs) = concatMap show bs
