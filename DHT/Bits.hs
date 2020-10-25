@@ -8,6 +8,13 @@ Stability : experimental
 
 Bits are are a string of 1's and 0's.
 
+Construct from Ints with 'toBits' and a padding/ truncation length.
+
+Bits with extra padding are NOT equal, I.E.
+00101 /= 101
+
+The 'leading' bit is the leftmost bit.
+
  -}
 module DHT.Bits
   (-- * Bits
@@ -69,10 +76,15 @@ toBits i size
   | size <= 0 = Bits []
   | otherwise = Bits . reverse . map (Bit . B.testBit i) $ [0..size-1]
 
--- | Convert Bits to an Int (assuming it doesnt overflow)
+-- | Convert Bits to an Int (assuming it doesnt overflow).
 fromBits :: Bits -> Int
-fromBits (Bits bs) = foldl' (\acc (i,Bit b) -> if b then B.setBit acc i else acc) 0 $ zip [0..(length bs)] bs
+fromBits (Bits bs) = foldl' (\acc (i,Bit b) -> if b then B.setBit acc i else acc)
+                            0
+                            . zip [0..(length bs)]
+                            . reverse
+                            $ bs
 
+-- | Exclusive-or two individual bits.
 xor :: Bit -> Bit -> Bit
 xor x y
   | x == y    = Zero

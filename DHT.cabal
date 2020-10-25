@@ -58,6 +58,7 @@ test-suite hspec
   hs-source-dirs:    Test
 
   other-modules:     DHT.Test.AddressSpec
+                   , DHT.Test.BitsSpec
 
   build-depends:     base
                    , DHT
