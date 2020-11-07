@@ -189,15 +189,17 @@ inserts cAddrs now ping hashSize rt = foldrM (\cAddr accRt -> insert cAddr now p
 
 -- sort a list of Contact's by their distance to an ID
 sortTo :: ID -> [Contact] -> [Contact]
-sortTo targetID = map fst . sortBy (\(_,d) (_,d') -> compare d' d) . map (\c@(Contact cID _ _) -> (c,distance targetID cID))
+sortTo targetID = map fst . sortBy (\(_,d) (_,d') -> compare d' d) . map (\c -> (c,distance targetID (contactID c)))
 
 -- sort a list of Contact's by their distance to an ID. Separate an exact match.
 sortFor :: ID -> [Contact] -> ([Contact],Maybe Contact)
 sortFor targetID ctcts = case sortTo targetID ctcts of
   []                    -> ([],Nothing)
   (c:cs)
-    | _ID c == targetID -> (cs,Just c)
-    | otherwise         -> (c:cs,Nothing)
+    | contactID c == targetID
+     -> (cs,Just c)
+    | otherwise
+     -> (c:cs,Nothing)
 
 {-LOOKUP-}
 

@@ -83,21 +83,30 @@ useBucket now (Bucket lu cs) = Bucket (if now > lu then now else lu) cs
 -- | Split a Bucket by the distance bit at a given depth
 split :: ID -> Int -> Bucket -> (Bucket,Bucket)
 split ourID depth (Bucket t cs) =
-  let (further,nearer) = partition (\(Contact cID _ _) -> (== Far) . leadingBit . dropLeadingBits depth . _unDistance . distance cID $ ourID) cs
-     in (Bucket t further,Bucket t nearer)
+  let (further,nearer) = partition (\contact -> (== Far) . leadingBit
+                                                         . dropLeadingBits depth
+                                                         . _unDistance
+                                                         . distance (contactID contact)
+                                                         $ ourID
+                                   )
+                                   cs
+
+     in (Bucket t further, Bucket t nearer)
 
 -- | Enter a new Contact into a Bucket. Mark the Bucket as fresh, the Contact is assumed to be Good.
 enter :: ID -> Address -> Time -> Bucket -> Bucket
-enter cID nAdr now (Bucket _ cs) = Bucket now (nub (Contact cID nAdr Good : cs))
+enter cID nAdr now (Bucket _ cs) = Bucket now . nub . (: cs) . replaceID cID . mkContact 8 $ nAdr
+-- TODO:
+-- - Overriding ID should be dropped or optional, not required!
 
 -- | If the Bucket contains a bad Contact, drop it, prefering to drop a contact with lower priority.
 dropBad :: Bucket -> Maybe Bucket
 dropBad (Bucket lu neighbours) = Bucket <$> pure lu <*> f neighbours
   where f []     = Nothing
-        f (k@(Contact _ _ goodness):ks) = case goodness of
-          Bad -> Just ks
-          _   -> do ks' <- f ks
-                    Just $ k : ks'
+        f (k:ks)
+          | isBad k   = Just ks
+          | otherwise = do ks' <- f ks
+                           Just $ k : ks'
 
 -- | Update a bucket by running an update function one by one on any Questionable Contacts, setting
 -- contacts which reply to Good. If a contact becomes Bad, it is returned and the update short-circuits.
@@ -116,16 +125,18 @@ updateBucket (Bucket lu ctcts) f = updateContacts ctcts >>= \(cs,contactDropped)
 
     -- Questionable Contacts which do not reply return Nothing.
     updateContact :: Monad m => Contact -> m (Maybe Contact)
-    updateContact (Contact cID addr Questionable) = do
-      b <- f addr
-      if b then return $ Just $ Contact cID addr Good else return Nothing
-    updateContact c = return $ Just c
+    updateContact c
+      | isQuestionable c = do b <- f (contactAddress c)
+                              if b
+                                then return . Just . setGood $ c
+                                else return Nothing
+      | otherwise = return $ Just c
 
 -- | If a node with the given ID is stored by the bucket, modify it.
 modifyBucketContact :: ID -> (Contact -> Contact) -> Bucket -> Maybe Bucket
 modifyBucketContact _   _ (Bucket _ [])     = Nothing
 modifyBucketContact tID f (Bucket lstUsd (c:cs))
-  | _ID c == tID = Just $ Bucket lstUsd (f c : cs)
-  | otherwise    = do Bucket l cs' <- modifyBucketContact tID f (Bucket lstUsd cs)
-                      Just $ Bucket l (c:cs')
+  | contactID c == tID = Just $ Bucket lstUsd (f c : cs)
+  | otherwise          = do Bucket l cs' <- modifyBucketContact tID f (Bucket lstUsd cs)
+                            Just $ Bucket l (c:cs')
 

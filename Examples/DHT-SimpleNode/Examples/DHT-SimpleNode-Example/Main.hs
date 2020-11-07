@@ -127,7 +127,7 @@ testNeighbours = do
       -> "We're not already known about"
 
     Just i
-      | _ID i == id
+      | contactID i == id
       -> "We found ourself"
       | otherwise
       -> "We found a collision with ourself!!"
