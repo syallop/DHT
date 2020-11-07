@@ -6,6 +6,21 @@
 {-|
 Stability : experimental
 
+This module defines a Bucket ADT which can be used to store a collection of 'Contacts'.
+
+- New contacts are 'enter'd into the Bucket and begin marked 'Good'.
+- A single 'Bad' contact can be dropped with 'dropBad'. The Bucket may choose
+  the 'lowest' priority Contact to drop.
+- Buckets can be split into two by distance to an ID with 'split'.
+- Questionable contacts can be checked by an external function which may mark
+  them as Good or Bad in order to effect their standing in the Bucket.
+
+Semi-careful use of these functions should allow maintaining collections of
+Buckets of bounded size of Good Contacts. These properties can be used to build Routing
+trees.
+
+Note: Functionality here isn't quite complete. Observed usage will direct how this API ends up.
+For now, 'modifyBucketContact' is the escape hatch to directly modify Contacts.
 -}
 module DHT.Bucket
   (-- * Bucket functions
@@ -48,7 +63,6 @@ data Bucket = Bucket
 -- | The empty bucket at a given time period.
 emptyBucket :: Time -> Bucket
 emptyBucket t = Bucket t []
-
 
 -- | The Buckets Contacts ordered by 'Goodness'.
 contacts :: Bucket -> [Contact]
