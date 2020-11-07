@@ -61,6 +61,7 @@ test-suite hspec
   other-modules:     DHT.Test.AddressSpec
                    , DHT.Test.BitsSpec
                    , DHT.Test.IDSpec
+                   , DHT.Test.ContactSpec
 
   build-depends:     base
                    , DHT
