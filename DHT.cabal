@@ -62,6 +62,7 @@ test-suite hspec
                    , DHT.Test.BitsSpec
                    , DHT.Test.IDSpec
                    , DHT.Test.ContactSpec
+                   , DHT.Test.BucketSpec
 
   build-depends:     base
                    , DHT

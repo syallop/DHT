@@ -109,7 +109,8 @@ dropBad (Bucket lu neighbours) = Bucket <$> pure lu <*> f neighbours
                            Just $ k : ks'
 
 -- | Update a bucket by running an update function one by one on any Questionable Contacts, setting
--- contacts which reply to Good. If a contact becomes Bad, it is returned and the update short-circuits.
+-- contacts which reply to Good. If a contact becomes Bad, it is dropped and the update short-circuits.
+-- Boolean indicates whether a contact was dropped.
 updateBucket :: forall m. Monad m => Bucket -> (Address -> m Bool) -> m (Bucket,Bool)
 updateBucket (Bucket lu ctcts) f = updateContacts ctcts >>= \(cs,contactDropped) -> return (Bucket lu cs,contactDropped)
   where
