@@ -69,6 +69,7 @@ data Routing = Routing
   , _ourID         :: ID   -- ^ Our own ID
   , _tree          :: Tree -- ^ The routing tree we maintain
   }
+  deriving Show
 
 -- | The deepest leaf
 depth :: Routing -> Int
@@ -96,7 +97,7 @@ toList (Routing _ _ t) = toList' t
         toList' (Branch f n) = toList' f ++ toList' n
 
 -- | The maximum number of 'Contacts's to keep in a single 'Bucket'.
--- Also the amount of Contactss that will be returned in lookups if available.
+-- Also the amount of Contacts that will be returned in lookups if available.
 maxBucketSize :: Routing -> Int
 maxBucketSize = _maxBucketSize
 
@@ -105,7 +106,11 @@ ourRoutingID :: Routing -> ID
 ourRoutingID = _ourID
 
 -- | An initial, empty routing structure (Does NOT contain ourself).
-empty :: Int -> ID -> Time -> Routing
+empty
+  :: Int     -- ^ Maximum number of Contacts stored in a single Bucket
+  -> ID      -- ^ Our ID
+  -> Time    -- ^ Current Time
+  -> Routing -- ^ An empty Routing tree
 empty maxSize ourID now = Routing maxSize ourID $ Leaf $ emptyBucket now
 
 
@@ -131,14 +136,26 @@ towardsNearest (Path (Bits bs)) = all (== R) bs
 inRange :: ID -> ID -> Path -> Bool
 inRange target us path = towardsNearest path && ((== Near) . head . drop (length . _unBits . _unPath $ path) . _unBits . _unDistance . distance target $ us)
 
--- | Insert an 'Address' at a given 'Time'.
+-- | Insert a Contact in the Routing table if it is desirable. A Contact is
+-- desirable when:
+-- - It is considered 'Near' to our ID.
+-- - It is 'Far' but we have capacity.
+-- - It is 'Far', we don't have capacity but we know of a 'Bad' Contact it can
+--   replace.
+-- - It is 'Far', we don't have capacity or know of a 'Bad' Contact but in
+--   pinging 'Questionable' Contacts, one is discovered that can be replaced.
 --
--- - If the Address is along a near path the 'Contact' will be inserted even if it requires the 'Bucket' be split.
--- - If the Address is far away and we already have a full 'Bucket' of similarly far neighbours:
---   - If there is a Bad Contact then it will replace it
---   - If there are any Questionable Contacts then they will be updated with the given ping function one by one. If one becomes Bad it will be replaced,
---     otherwise the inserted Contact is not inserted.
-insert :: forall m. Monad m => Address -> Time -> (Address -> m Bool) -> Int -> Routing -> m Routing
+-- If a Contact is not considered desirable by these metrics, it will not be
+-- inserted.
+insert
+  :: forall m
+   . Monad m             -- ^ Monad in which Contacts may be pinged.
+  => Address             -- ^ Address of Contact to insert.
+  -> Time                -- ^ Time that Contact was considered Good.
+  -> (Address -> m Bool) -- ^ Ping function that must be able to determine whether an Adddress of a Questionable Contact is Good or not.
+  -> Int                 -- ^ The ID size used to create Contact IDs.
+  -> Routing             -- ^ Original Routing table
+  -> m Routing           -- ^ Updated Routing table with new Contact inserted if space and Goodness permit.
 insert cAddr now ping hashSize rt = finalRt
   where
     cID           = mkID cAddr hashSize
