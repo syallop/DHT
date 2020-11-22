@@ -7,7 +7,7 @@ Stability : experimental
 
 Record contact information for a DHT speaking node.
  -}
-module DHT.Contact
+module DHT.Core.Contact
   ( Goodness
       (Good
       ,Questionable
@@ -36,8 +36,8 @@ module DHT.Contact
   , showContacts
   ) where
 
-import DHT.ID
-import DHT.Address
+import DHT.Core.ID
+import DHT.Core.Address
 
 import Data.Binary
 import Data.Typeable

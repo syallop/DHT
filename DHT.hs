@@ -87,14 +87,14 @@ import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.List                  ((\\),nub,intercalate)
 import Data.Typeable
 
-import DHT.Address
-import DHT.Command
-import DHT.Contact
-import DHT.ID
-import DHT.Message
-import DHT.Types
+import DHT.Core.Address
+import DHT.Core.Contact
+import DHT.Core.ID
+import DHT.Core.Types
+import DHT.Protocol.Command
+import DHT.Protocol.Message
 
-import qualified DHT.Op as Op
+import qualified DHT.Client.Op as Op
 
 -- TODO:
 -- - Config shouldnt be in state, since it shouldnt be modified

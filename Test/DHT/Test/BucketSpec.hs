@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DHT.Test.BucketSpec where
 
-import DHT.Bucket
-import DHT.Types
-import DHT.Address
-import DHT.Contact
-import DHT.ID
+import DHT.Core.Bucket
+import DHT.Core.Types
+import DHT.Core.Address
+import DHT.Core.Contact
+import DHT.Core.ID
 
 import Test.Hspec
 

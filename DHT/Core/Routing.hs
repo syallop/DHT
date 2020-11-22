@@ -12,7 +12,7 @@ and few which are futher away. Contacts will not be kept if:
   - Otherwise, progressivly nearer Contacts are always kept and may cause a Bucket split
     (which could make room for up to a Buckets worth of contacts that we didnt want before.)
 -}
-module DHT.Routing
+module DHT.Core.Routing
   (-- * Core functions on Routing tables
     Routing ()
   , empty
@@ -37,12 +37,12 @@ import Prelude hiding (lookup)
 import Data.Foldable              (foldrM)
 import Data.List           hiding (insert,lookup)
 
-import DHT.Address
-import DHT.Bits
-import DHT.Bucket
-import DHT.Contact
-import DHT.ID
-import DHT.Types
+import DHT.Core.Address
+import DHT.Core.Bits
+import DHT.Core.Bucket
+import DHT.Core.Contact
+import DHT.Core.ID
+import DHT.Core.Types
 
 -- A tree of Buckets which store up to a fixed number of Contacts.
 -- Buckets are stored at the leaves, branches have a near and a far branch.

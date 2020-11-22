@@ -13,7 +13,7 @@ An ID is a fixed length string of 'Bit's that identifies a resource (a node, a s
 There is a notion of 'distance' between ID's such that the distance from A to B will always be less than (or equal)
 to the total distance A to C to B.
  -}
-module DHT.ID
+module DHT.Core.ID
   (-- * Bits
     Bit
   , pattern Zero
@@ -44,7 +44,7 @@ import Data.Hashable
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
 
-import DHT.Bits
+import DHT.Core.Bits
 
 -- | An ID is a string of Bits used to uniquely identify a resource.
 newtype ID = ID {_unID :: Bits}

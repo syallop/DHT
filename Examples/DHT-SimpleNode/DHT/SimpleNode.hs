@@ -16,11 +16,8 @@ import           Data.Time.Clock.POSIX
 import           System.Random
 
 import DHT
-import qualified DHT.Op as Op
-import DHT.Address
-import DHT.Contact
-import DHT.ID
-import DHT.Types
+import DHT.Core
+import qualified DHT.Client.Op as Op
 
 import DHT.SimpleNode.Messaging
 import DHT.SimpleNode.RoutingTable

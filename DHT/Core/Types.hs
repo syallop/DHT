@@ -3,7 +3,7 @@ Stability : experimental
 
 Some common types used across a DHT.
  -}
-module DHT.Types
+module DHT.Core.Types
   ( IP
   , Port
   , Time

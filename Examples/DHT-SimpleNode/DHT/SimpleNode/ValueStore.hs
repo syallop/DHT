@@ -9,7 +9,7 @@ module DHT.SimpleNode.ValueStore
   where
 
 import DHT
-import DHT.ID
+import DHT.Core.ID
 
 import Control.Concurrent
 import qualified Data.Map as Map

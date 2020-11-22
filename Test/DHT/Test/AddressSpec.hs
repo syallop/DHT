@@ -1,6 +1,6 @@
 module DHT.Test.AddressSpec where
 
-import DHT.Address
+import DHT.Core.Address
 import Data.Hashable
 
 import Test.Hspec

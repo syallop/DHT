@@ -4,7 +4,7 @@ Stability : experimental
 Exports ValueStore which encapsulates the operations we must know how to perform,
 in order to store and lookup values.
  -}
-module DHT.Op.ValueStore
+module DHT.Client.Op.ValueStore
   ( ValueStore()
   , mkValueStore
 
@@ -15,10 +15,10 @@ module DHT.Op.ValueStore
   , lookup
   ) where
 
+import DHT.Core.ID
+
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Prelude hiding (insert, lookup)
-
-import DHT.ID
 
 -- TODO:
 -- - Insert and lookup are bad names?

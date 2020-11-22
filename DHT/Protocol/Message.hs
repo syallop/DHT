@@ -11,7 +11,7 @@ Stability : experimental
 Encapsulate commands, their parameters and their response messages, able to be sent and recieved 'over the wire' via encoding to
 ByteStrings with 'encodeMessage' and decoded to 'SomeMessage' via 'decodeSomeMessage'.
 -}
-module DHT.Message
+module DHT.Protocol.Message
   (-- * Core outwards message type
     Message (RequestMsg,ResponseMsg)
 
@@ -42,9 +42,9 @@ module DHT.Message
   , showMessage
   ) where
 
-import DHT.Address
-import DHT.Command
-import DHT.Contact
+import DHT.Core.Address
+import DHT.Core.Contact
+import DHT.Protocol.Command
 
 import Data.Binary
 import Data.Binary.Get

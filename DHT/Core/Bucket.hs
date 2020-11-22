@@ -22,7 +22,7 @@ trees.
 Note: Functionality here isn't quite complete. Observed usage will direct how this API ends up.
 For now, 'modifyBucketContact' is the escape hatch to directly modify Contacts.
 -}
-module DHT.Bucket
+module DHT.Core.Bucket
   (-- * Bucket functions
     Bucket ()
   , emptyBucket
@@ -43,10 +43,10 @@ module DHT.Bucket
 
 import Data.List
 
-import DHT.Address
-import DHT.Contact
-import DHT.ID
-import DHT.Types
+import DHT.Core.Address
+import DHT.Core.Contact
+import DHT.Core.ID
+import DHT.Core.Types
 
 -- | A Bucket holds a fixed number of 'Contact's. It also tracks when it was last
 -- used to allow refreshing when appropriate.

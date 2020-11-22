@@ -8,7 +8,7 @@ Stability : experimental
 Exports RoutingTable which encapsulates the operations we must know how to perform,
 in order to maintain routing contacts.
  -}
-module DHT.Op.RoutingTable
+module DHT.Client.Op.RoutingTable
   ( RoutingTable()
   , mkRoutingTable
 
@@ -20,10 +20,10 @@ module DHT.Op.RoutingTable
   , kSize
   ) where
 
-import DHT.Address
-import DHT.Contact
-import DHT.ID
-import DHT.Types
+import DHT.Core.Address
+import DHT.Core.Contact
+import DHT.Core.ID
+import DHT.Core.Types
 
 -- TODO:
 -- - Ping function should standalone?

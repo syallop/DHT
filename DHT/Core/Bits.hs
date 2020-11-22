@@ -17,7 +17,7 @@ Bits with extra padding are NOT equal, I.E.
 The 'leading' bit is the leftmost bit.
 
  -}
-module DHT.Bits
+module DHT.Core.Bits
   (-- * Bits
     Bit
   , pattern Zero

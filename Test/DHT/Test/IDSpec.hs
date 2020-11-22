@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DHT.Test.IDSpec where
 
-import DHT.ID
+import DHT.Core.ID
 
 import Test.Hspec
 

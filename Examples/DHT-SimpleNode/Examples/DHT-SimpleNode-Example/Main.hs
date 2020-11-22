@@ -5,11 +5,7 @@ import DHT.SimpleNode
 import DHT.SimpleNode.Logging
 
 import DHT
-import DHT.Address
-import DHT.Bucket
-import DHT.ID
-import DHT.Contact
-
+import DHT.Core
 
 import Control.Concurrent
 import Control.Monad

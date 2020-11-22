@@ -8,10 +8,8 @@ module DHT.SimpleNode.Messaging
   where
 
 import DHT
-import DHT.Address
-import DHT.Command
-import DHT.Contact
-import DHT.Types
+import DHT.Core
+import DHT.Protocol.Command
 
 import Control.Concurrent
 import Data.Typeable

@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DHT.Test.RoutingSpec where
 
-import DHT.Routing
-import DHT.ID
-import DHT.Types
-import DHT.Address
-import DHT.Bits
-import DHT.Contact
+import DHT.Core.Routing
+import DHT.Core.ID
+import DHT.Core.Types
+import DHT.Core.Address
+import DHT.Core.Bits
+import DHT.Core.Contact
 
 import Test.Hspec
 

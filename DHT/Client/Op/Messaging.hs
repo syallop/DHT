@@ -8,7 +8,7 @@ Stability : experimental
 Exports Messaging which encapsulates the operations we must know how to perform,
 in order to send and recieve messages.
  -}
-module DHT.Op.Messaging
+module DHT.Client.Op.Messaging
   ( Messaging ()
   , mkMessaging
 
@@ -23,11 +23,11 @@ module DHT.Op.Messaging
   , recvBytes
   ) where
 
+import DHT.Core.Address
+import DHT.Protocol.Command
+
 import Data.ByteString.Lazy.Char8 (ByteString)
 import Data.Typeable
-
-import DHT.Address
-import DHT.Command
 
 -- | Messaging operations.
 -- In some 'm' provide functions for:

@@ -10,14 +10,14 @@ An Address should fully describe a port of communication.
 E.G. An Address of "127.0.0.1" is insufficient if the communicator must assume
 port 80, and protocol UDP.
 -}
-module DHT.Address
+module DHT.Core.Address
   ( Address (..)
   , AddressPart (..)
   , parts
   , fromParts
   ) where
 
-import DHT.Types
+import DHT.Core.Types
 import Data.Binary
 import Data.Hashable
 import GHC.Generics

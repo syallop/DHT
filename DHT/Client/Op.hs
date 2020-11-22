@@ -5,7 +5,7 @@ Stability : experimental
 Exports 'Op' which encapsulates the operations we must know how to perform in order to implement a DHT.
 
  -}
-module DHT.Op
+module DHT.Client.Op
   ( Op()
   , mkOp
 
@@ -53,11 +53,11 @@ module DHT.Op
   )
   where
 
-import qualified DHT.Op.Messaging    as Op
-import qualified DHT.Op.RoutingTable as Op
-import qualified DHT.Op.ValueStore   as Op
+import qualified DHT.Client.Op.Messaging    as Op
+import qualified DHT.Client.Op.RoutingTable as Op
+import qualified DHT.Client.Op.ValueStore   as Op
 
-import DHT.Types
+import DHT.Core.Types
 
 -- | A Possible logging function in 'm'.
 type Logging m = Maybe (String -> m ())

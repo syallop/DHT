@@ -17,7 +17,7 @@ Closed type functions determine for each cmd type:
 - Out: Expected output.
 - Resp: The type required to respond to a recieved command such that the sender can recognise it and extract the Out
  -}
-module DHT.Command
+module DHT.Protocol.Command
     ( CMD(PING,STORE,FINDVALUE,FINDCONTACT)
     , Command(Ping,Store,FindValue,FindContact)
 
@@ -30,13 +30,13 @@ module DHT.Command
     , compareCommand
     ) where
 
-import Data.Function
 
-import DHT.Contact
-import DHT.Address
-import DHT.ID
+import DHT.Core.Contact
+import DHT.Core.Address
+import DHT.Core.ID
 
 import Data.ByteString.Lazy.Char8 (ByteString)
+import Data.Function
 import Data.Word8
 
 -- | DataKind promoted tag of command variants

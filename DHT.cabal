@@ -16,19 +16,25 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     DHT
-                     , DHT.Address
-                     , DHT.Bits
-                     , DHT.Bucket
-                     , DHT.Command
-                     , DHT.Contact
-                     , DHT.ID
-                     , DHT.Message
-                     , DHT.Op
-                     , DHT.Op.Messaging
-                     , DHT.Op.RoutingTable
-                     , DHT.Op.ValueStore
-                     , DHT.Routing
-                     , DHT.Types
+
+                     , DHT.Core
+                     , DHT.Core.Address
+                     , DHT.Core.Bits
+                     , DHT.Core.Bucket
+                     , DHT.Core.Contact
+                     , DHT.Core.ID
+                     , DHT.Core.Routing
+                     , DHT.Core.Types
+
+                     , DHT.Protocol
+                     , DHT.Protocol.Command
+                     , DHT.Protocol.Message
+
+                     , DHT.Client
+                     , DHT.Client.Op
+                     , DHT.Client.Op.Messaging
+                     , DHT.Client.Op.RoutingTable
+                     , DHT.Client.Op.ValueStore
   -- other-modules:
   other-extensions:    OverloadedStrings
   build-depends:       base

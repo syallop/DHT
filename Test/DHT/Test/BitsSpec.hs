@@ -1,6 +1,6 @@
 module DHT.Test.BitsSpec where
 
-import DHT.Bits
+import DHT.Core.Bits
 
 import Test.Hspec
 

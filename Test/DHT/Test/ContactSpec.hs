@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DHT.Test.ContactSpec where
 
-import DHT.Contact
-import DHT.Address
-import DHT.ID
+import DHT.Core.Contact
+import DHT.Core.Address
+import DHT.Core.ID
 
 import Test.Hspec
 
