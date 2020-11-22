@@ -8,8 +8,29 @@ Stability : experimental
 Record contact information for a DHT speaking node.
  -}
 module DHT.Contact
-  ( Goodness(..)
-  , Contact(..)
+  ( Goodness
+      (Good
+      ,Questionable
+      ,Bad)
+
+  , Contact ()
+  , mkContact
+  , replaceID
+
+  , contactID
+  , contactAddress
+  , contactGoodness
+
+  , updateGoodness
+  , setGood
+  , setBad
+  , setQuestionable
+  , isGood
+  , isBad
+  , isQuestionable
+
+  , idsEqual
+  , exactlyEqual
 
   , showContact
   , showContacts
@@ -46,9 +67,88 @@ data Contact = Contact
   deriving (Show, Ord, Generic, Typeable)
 instance Binary Contact
 
--- Contacts are compared for equality on their ID's ONLY
-instance Eq Contact where
-  (Contact id0 _ _) == (Contact id1 _ _) = id0 == id1
+-- | Create a Contact whose ID is automatically derived from their Address (with
+-- a given size).
+--
+-- If a disconnected ID is required, use 'replaceID'.
+mkContact
+  :: Int
+  -> Address
+  -> Contact
+mkContact size addr = Contact (mkID addr size) addr Good
+
+-- | If a Contact's ID should _not_ be derived from it's address, it can be
+-- replaced.
+--
+-- If this is used, the caller takes responsibility for ensuring similar
+-- properties to a hash function on the address, I.E.:
+-- - ID's are normally distributed across Contacts (collisions are tolerated but
+--   should often be minimised as much as is reasonable).
+-- - Contacts ID's remain stable
+-- - IDs are recomputed to the same value for the same Contact.
+replaceID
+  :: ID
+  -> Contact
+  -> Contact
+replaceID id (Contact _oldID addr goodness) = Contact id addr goodness
+
+-- | Access a Contacts ID.
+contactID
+  :: Contact
+  -> ID
+contactID = _ID
+
+-- | Access a Contacts Address.
+contactAddress
+  :: Contact
+  -> Address
+contactAddress = _addr
+
+-- | Access a Contacts Goodness.
+contactGoodness
+  :: Contact
+  -> Goodness
+contactGoodness = _goodness
+
+-- | Update the Goodness value of a Contact.
+updateGoodness
+  :: (Goodness -> Goodness)
+  -> Contact
+  -> Contact
+updateGoodness f (Contact id addr goodness) = Contact id addr (f goodness)
+
+setGood :: Contact -> Contact
+setGood = updateGoodness (const Good)
+
+setBad :: Contact -> Contact
+setBad = updateGoodness (const Bad)
+
+setQuestionable :: Contact -> Contact
+setQuestionable = updateGoodness (const Questionable)
+
+isGood :: Contact -> Bool
+isGood = (== Good) . contactGoodness
+
+isBad :: Contact -> Bool
+isBad = (== Bad) . contactGoodness
+
+isQuestionable :: Contact -> Bool
+isQuestionable = (== Questionable) . contactGoodness
+
+-- | Do two contact have the same ID?
+-- Does not consider any other properties for equality, unlike ==.
+idsEqual :: Contact -> Contact -> Bool
+idsEqual (Contact id0 _ _) (Contact id1 _ _) = id0 == id1
+
+-- | Are two contacts equal on all properties, I.E. not just their ID?
+exactlyEqual :: Contact -> Contact -> Bool
+exactlyEqual (Contact id0 addr0 goodness0) (Contact id1 addr1 goodness1) = and
+  [id0       == id1
+  ,addr0     == addr1
+  ,goodness0 == goodness1
+  ]
+
+instance Eq Contact where (==) = idsEqual
 
 showContact :: Contact -> String
 showContact (Contact i addr _) = concat ["<",show i,"@",show addr,">"]

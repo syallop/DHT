@@ -368,7 +368,7 @@ store key val = do
   -- TODO: If the messaging system has returned non-matching ID's in
   -- acknowledgment, we should mark the culprits as bad contacts/ surface an
   -- error.
-  ids <- mapM (storeAt keyID val . _addr) cts
+  ids <- mapM (storeAt keyID val . contactAddress) cts
   let unexpectedIDs = filter (/= keyID) ids
   when (not . (== []) $ unexpectedIDs)
        $ lg . (("When storing id " <> show key <> " some contacts returned incorrect ids: ") <>)
@@ -433,7 +433,7 @@ findData cmmnd input = findData' cmmnd input []
 
       -- Query each contact for their k-nearest known contacts, and the desired value if they have it
       results <- forM considerCs $
-          \c -> sendMessage (_addr c) $ RequestMsg cmnd i
+          \c -> sendMessage (contactAddress c) $ RequestMsg cmnd i
 
       let result = flattenResults results
       case result of
@@ -513,14 +513,14 @@ bootstrapFrom bAddr = do
                 --
                 -- 2. Havnt been forgotten since a previous session.
                 -- We *should* be able to just continue where we left of
-                | _addr c == ourAddr -> cs
+                | contactAddress c == ourAddr -> cs
 
                 -- 3. Somebody elses ID has collided with us
                 -- TODO: Do something reasonable other than nothing. Maybe change how IDs are picked.
                 | otherwise -> []
 
   -- ping all of our neighbours so they know we exist and might enter their routing table.
-  pingAll $ map _addr cts
+  pingAll $ map contactAddress cts
 
 -- | Terminate the connection to the DHT.
 --

@@ -2,6 +2,8 @@
     PatternSynonyms
   , TypeOperators
   , GeneralizedNewtypeDeriving
+  , DeriveGeneric
+  , GeneralizedNewtypeDeriving
   #-}
 {-|
 Stability : experimental
@@ -39,6 +41,9 @@ module DHT.ID
 import Data.Binary
 import Data.Hashable
 
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
+
 import DHT.Bits
 
 -- | An ID is a string of Bits used to uniquely identify a resource.
@@ -54,7 +59,7 @@ mkID h = ID . toBits (hash h)
 
 -- | The distance between two bitstrings is a bitstring.
 newtype Distance = Distance {_unDistance :: Bits}
-  deriving (Eq,Ord)
+  deriving (Eq,Ord,Generic,NFData)
 
 pattern Far :: Bit
 pattern Far = Zero

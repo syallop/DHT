@@ -35,6 +35,7 @@ library
                      , binary
                      , bytestring
                      , containers
+                     , deepseq
                      , hashable
                      , network
                      , string-conv
@@ -51,4 +52,33 @@ library
                       -threaded
   -- hs-source-dirs:
   default-language:    Haskell2010
+
+test-suite hspec
+  type:              exitcode-stdio-1.0
+  main-is:           Spec.hs
+  hs-source-dirs:    Test
+
+  other-modules:     DHT.Test.AddressSpec
+                   , DHT.Test.BitsSpec
+                   , DHT.Test.IDSpec
+                   , DHT.Test.ContactSpec
+                   , DHT.Test.BucketSpec
+
+  build-depends:     base
+                   , DHT
+                   , QuickCheck
+                   , containers >=0.5
+                   , hedgehog
+                   , hashable
+                   , hspec
+                   , quickcheck-instances
+                   , semigroups
+                   , bytestring
+                   , text
+                   , deepseq
+                   , ghc-prim
+
+  default-language:  Haskell2010
+
+  other-extensions:  OverloadedStrings
 
