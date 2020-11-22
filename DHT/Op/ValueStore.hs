@@ -20,6 +20,9 @@ import Prelude hiding (insert, lookup)
 
 import DHT.ID
 
+-- TODO:
+-- - Insert and lookup are bad names?
+
 -- | Operations on value storage
 data ValueStore m = ValueStore
     { _valueStoreInsert :: ValInsertF m -- ^ Insert a value in the storage

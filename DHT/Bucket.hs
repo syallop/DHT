@@ -60,6 +60,21 @@ data Bucket = Bucket
   }
   deriving Show
 
+-- TODO:
+-- - Enforce all contacts have the same bitlength
+-- - Contacts should be sorted by Goodness
+-- - Contacts should be sorted by distance to some ID
+-- - Duplicates should not be allowed
+-- - The same contact with different Goodness should not be allowed
+-- - Claimed short-circuiting in update function is weird.
+-- - Is only removing one the behavior we want
+-- - Should a Bucket be aware of it's size/ be able to auto-split?
+-- - Update/ modify should require the time to change
+-- - Enforce time increases?
+-- - Could be generic over contained value
+-- - Ban changing anything other than Goodness?
+-- - Should update be permitted to touch bad/ good Contacts as well (yes?)
+
 -- | The empty bucket at a given time period.
 emptyBucket :: Time -> Bucket
 emptyBucket t = Bucket t []
@@ -107,6 +122,13 @@ dropBad (Bucket lu neighbours) = Bucket <$> pure lu <*> f neighbours
           | isBad k   = Just ks
           | otherwise = do ks' <- f ks
                            Just $ k : ks'
+
+-- TODO: This function is weird. Replace!
+-- - flip argument order
+-- - Return what was changed
+-- - Dont short circuit
+-- - Be clear about operating on questionable, or extend to all
+-- - Bool in return of f
 
 -- | Update a bucket by running an update function one by one on any Questionable Contacts, setting
 -- contacts which reply to Good. If a contact becomes Bad, it is dropped and the update short-circuits.

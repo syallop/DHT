@@ -44,6 +44,10 @@ import Data.Typeable
 import Data.List
 import GHC.Generics
 
+-- TODO:
+-- - Should we handle Contacts with multiple addresses?
+-- - Should we enforce Contacts ID are created from addresses?
+
 -- | How good we consider a contact to be.
 data Goodness
   -- | Good contacts respond to queries, make proper queries on us. Good contacts should not be replaced.

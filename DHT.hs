@@ -96,6 +96,13 @@ import DHT.Types
 
 import qualified DHT.Op as Op
 
+-- TODO:
+-- - Config shouldnt be in state, since it shouldnt be modified
+-- - In fact, state doesnt get modified either so is there a reason not to
+-- merge?
+-- - In general there are too many layers of indirection between the Ops and the
+-- top level DHT functions.
+
 {- DHT configuration components -}
 -- | DHT configuration
 data DHTConfig dht m = DHTConfig

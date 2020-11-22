@@ -136,6 +136,14 @@ towardsNearest (Path (Bits bs)) = all (== R) bs
 inRange :: ID -> ID -> Path -> Bool
 inRange target us path = towardsNearest path && ((== Near) . head . drop (length . _unBits . _unPath $ path) . _unBits . _unDistance . distance target $ us)
 
+-- TODO:
+-- - Break desirability from insert logic.
+-- - Should accept Contacts or Addresses?
+-- - Store ID size in the Routing table?
+-- - General cleanup
+-- - Pretty-printed Show instance?
+-- - Nearness should be functions on IDs/ moved to that module?
+
 -- | Insert a Contact in the Routing table if it is desirable. A Contact is
 -- desirable when:
 -- - It is considered 'Near' to our ID.
