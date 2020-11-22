@@ -10,7 +10,7 @@ module DHT.SimpleNode.Logging
 import Control.Concurrent
 import Control.Monad
 
-import DHT
+import DHT.Client (Logging)
 
 -- | Create a new logging system which outputs to stdout
 newSimpleLogging :: IO (Logging IO)

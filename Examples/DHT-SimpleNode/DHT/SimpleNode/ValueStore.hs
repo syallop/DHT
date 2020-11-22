@@ -8,7 +8,7 @@ module DHT.SimpleNode.ValueStore
   )
   where
 
-import DHT
+import DHT.Client
 import DHT.Core.ID
 
 import Control.Concurrent

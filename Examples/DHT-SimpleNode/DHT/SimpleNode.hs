@@ -16,6 +16,7 @@ import           Data.Time.Clock.POSIX
 import           System.Random
 
 import DHT
+import DHT.Client
 import DHT.Core
 import qualified DHT.Client.Op as Op
 
@@ -30,15 +31,15 @@ mkSimpleNodeConfig
   -> Int
   -> Logging IO
   -> Maybe Address
-  -> IO (DHTConfig DHT IO)
-mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
+  -> IO (Config DHT IO)
+mkSimpleNodeConfig ourAddress hashSize logging mBootstrapAddress = do
   now          <- timeF
   routingTable <- newSimpleRoutingTable maxBucketSize ourID now hashSize
   valueStore   <- newSimpleValueStore
-  messaging    <- newSimpleMessaging hashSize (maxPortLength,ourAddr)
+  messaging    <- newSimpleMessaging hashSize (maxPortLength, ourAddress)
 
   let ops = Op.mkOp timeF randF messaging routingTable valueStore logging
-  return $ DHTConfig ops ourAddr hashSize mBootstrapAddr
+  pure $ mkConfig ops ourAddress hashSize mBootstrapAddress
   where
     timeF :: IO Time
     timeF = round <$> getPOSIXTime
@@ -46,7 +47,7 @@ mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
     randF :: IO Int
     randF = randomRIO (0,maxBound)
 
-    ourID = mkID ourAddr hashSize
+    ourID = mkID ourAddress hashSize
 
     maxPortLength = 5
 
@@ -55,10 +56,10 @@ mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
 -- | Start a new node with some configuration.
 -- - Will handle incoming messages for the duration of the given program.
 -- Continuing communication after we reach the end of our own DHT computation must be programmed explicitly.
-newSimpleNode :: DHTConfig DHT IO
+newSimpleNode :: Config DHT IO
               -> DHT IO a
               -> IO (Either DHTError a)
-newSimpleNode dhtConfig dht = do
-  forkIO $ void $ startMessaging dhtConfig
-  runDHT dhtConfig $ bootstrap >> dht
+newSimpleNode config dht = do
+  forkIO $ void $ startMessaging config
+  runDHT config $ bootstrap >> dht
 

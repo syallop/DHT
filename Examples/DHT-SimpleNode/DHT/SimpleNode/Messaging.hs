@@ -7,7 +7,7 @@ module DHT.SimpleNode.Messaging
   )
   where
 
-import DHT
+import DHT.Client
 import DHT.Core
 import DHT.Protocol.Command
 

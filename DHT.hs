@@ -11,72 +11,64 @@ dependencies ('Messaging','RoutingTable','ValueStore','Logging') which are fulfi
 when the final DHT program is executed with 'runDHT'.
  -}
 module DHT
-  (-- * DHT
+  (-- * DHT Computations
    --
-   -- Core DHT type in which computations are ran
-    DHT()
-  , DHTError(..)
+    DHT ()
+  , DHTError (..)
 
-  -- ** Configuration
+  -- * Configuration
+  , Config ()
+  , mkConfig
+  , ourID
+  , ourAddress
+  , hashSize
+  , bootstrapAddress
+  , kSize
+
+  -- * DHT lifecycle
   --
-  -- These types and functions are used to initialise configuration for running
-  -- DHT programs.
-  , Op.Op()
-  , DHTConfig(..)
-  , DHTState()
-
-  , Op.Messaging()
-  , Op.mkMessaging
-
-  , Op.RoutingTable()
-  , Op.mkRoutingTable
-
-  , Op.ValueStore()
-  , Op.mkValueStore
-
-  , Op.Logging
-  , Op.SendF,Op.WaitF,Op.RouteF,Op.RecvF,Op.RTInsertF,Op.RTLookupF,Op.ValInsertF,Op.ValLookupF
-
-  -- ** DHT lifecycle functions
-  --
-  -- Start, stop, DHT's.
+  -- Operations that you will want to call to manage the DHT's lifecycle, I.E.
+  -- starting interaction with remote clients, bootstrapping and quitting.
   , runDHT
-  , startMessaging
-  , quitDHT
 
+  -- ** Start
+  --
+  -- In order for the DHT to interact with other remote instances, you must
+  -- either:
+  -- - Call 'startMessaging' (probably asynchronously).
+  -- - Manually pump recvAndHandleMessage
+  -- - Extra-manually use 'decodeSomeMessage' and pass the result into
+  -- 'handleMessage'.
+  , startMessaging
+
+  , handleMessage
+  , recvAndHandleMessage
+  , recvAndHandleMessages
+
+  -- ** Bootstrap
   , bootstrap
   , bootstrapFrom
-  , liftDHT
 
-  -- *** Core Operations
-  --
-  -- Primary interface for using the DHT as a client.
-  , ping
+  -- ** Quit
+  , quitDHT
+
+  -- * Core Operations
+  -- ** For remote clients
+  , ping, pingAll, pingThis
   , store
   , findValue
   , findContact
 
-  -- *** Query the local state
-  , askOurID
-  , askOurAddr
-  , askHashSize
-  , askBootstrapAddr
-  , kSize
+  -- ** For local client
   , lookupValue
   , lookupContact
 
-  -- *** Additional 'extra' operations, exposed for convenience
-  , timeNow
-  , randomInt
+  -- * Other Operations
   , lg
-
+  , currentTime
+  , randomInt
   , joinDHT
-  , timeOut
-
-  -- *** Alternatives to calling 'startMessaging'
-  , handleMessage
-  , recvAndHandleMessage
-  , recvAndHandleMessages
+  , liftDHT
   )
   where
 
@@ -97,29 +89,43 @@ import DHT.Protocol.Message
 import qualified DHT.Client.Op as Op
 
 -- TODO:
--- - Config shouldnt be in state, since it shouldnt be modified
--- - In fact, state doesnt get modified either so is there a reason not to
--- merge?
 -- - In general there are too many layers of indirection between the Ops and the
 -- top level DHT functions.
+-- - Must startMessaging be separate from runDHT?
 
 {- DHT configuration components -}
--- | DHT configuration
-data DHTConfig dht m = DHTConfig
-  { _dhtConfigOps           :: Op.Op dht m   -- ^ The operations we require to implement the DHT
-  , _dhtConfigAddr          :: Address       -- ^ Our address
-  , _dhtConfigHashSize      :: Int           -- ^ How many bits to use in hashed ID's
-  , _dhtConfigBootstrapAddr :: Maybe Address -- ^ Address to bootstrap from
+
+-- | DHT configuration is threaded through DHT computations and provides access
+-- to static configuration, including injected 'Op'erational behavior.
+data Config dht m = Config
+  { _configOp               :: Op.Op dht m   -- ^ The operations required to run the DHT.
+  , _configOurAddress       :: Address       -- ^ Our Address
+  , _configOurID            :: ID            -- ^ The ID we calculate for ourself.
+  , _configHashSize         :: Int           -- ^ How many bits to use in ID's.
+  , _configBootstrapAddress :: Maybe Address -- ^ Address to bootstrap from.
   }
 
--- | The DHTState is threaded through 'DHT' computations and contains the
--- initial DHTConfig and the ID we calculate for ourselves.
-data DHTState dht m = DHTState
-  {_dhtStateConfig :: DHTConfig dht m -- ^ User configuration contains injected subsystems
-  ,_dhtStateID     :: ID              -- ^ The ID we calculate for ourself
+-- | Create the configuration required to run a DHT computation.
+--
+-- Requires concrete implementation choices via 'Op' that describe Routing,
+-- Messaging, Storing, etc.
+--
+-- The Address and bit size will be used to compute our ID.
+mkConfig
+  :: Op.Op dht m    -- ^ The 'Op'erations required to run the DHT (messaging,routing,etc).
+  -> Address        -- ^ Our Address.
+  -> Int            -- ^ How many bits to use in IDs.
+  -> Maybe Address  -- ^ Address to bootstrap from.
+  -> Config dht m
+mkConfig op ourAddress hashSize bootstrapAddress = Config
+  { _configOp               = op
+  , _configOurAddress       = ourAddress
+  , _configOurID            = mkID ourAddress hashSize
+  , _configHashSize         = hashSize
+  , _configBootstrapAddress = bootstrapAddress
   }
 
-{- The DHT type, instances and primitive operations -}
+{- The DHT type, it's instances and public, primitive operations -}
 
 -- | DHT errors that may be returned from a DHT computation.
 data DHTError
@@ -128,7 +134,7 @@ data DHTError
 
 -- | A computation in the context of some DHTConfig executes in 'm' and either
 -- shortcircuits to a DHTError (with the monad instance) or returns an 'a'.
-newtype DHT m a = DHT {_runDHT :: DHTState DHT m -> m (Either DHTError a)}
+newtype DHT m a = DHT {_runDHT :: Config DHT m -> m (Either DHTError a)}
 
 -- DHTs Monad instance threads DHTState as readable state, executes in 'm' and
 -- shortcircuits if a DHTError is returned.
@@ -148,14 +154,6 @@ instance (Monad m,Functor m) => Applicative (DHT m) where
 instance Functor m => Functor (DHT m) where
   fmap f (DHT d) = DHT $ \r -> fmap f <$> d r
 
--- convenience for success as in inside a DHT after reading a DHTConfig.
-succeed :: Monad m => a -> m (Either DHTError a)
-succeed = return . Right
-
--- convenience for failure as in inside a DHT after reading a DHTConfig
-failure :: Monad m => DHTError -> m (Either DHTError a)
-failure = return . Left
-
 -- | Lift an action in 'm' into DHT.
 liftDHT :: Functor m => m a -> DHT m a
 liftDHT = DHT . const . (Right <$>)
@@ -164,185 +162,67 @@ liftDHT = DHT . const . (Right <$>)
 joinDHT :: (Monad m,Functor m) => DHT m (m a) -> DHT m a
 joinDHT = (>>= liftDHT)
 
--- | Ask for the DHTConfig
-ask :: Monad m => DHT m (DHTConfig DHT m)
-ask = DHT (succeed . _dhtStateConfig)
 
--- | Our own ID
-askOurID :: Monad m => DHT m ID
-askOurID = DHT (succeed . _dhtStateID)
+{- Internal helpers for writing DHT functions -}
 
--- | Our own address.
-askOurAddr :: Monad m => DHT m Address
-askOurAddr = _dhtConfigAddr <$> ask
+-- End a DHT with a DHTError.
+dhtError :: Applicative m => DHTError -> DHT m a
+dhtError = DHT . const . pure . Left
 
--- | The Hash Size used for keys.
-askHashSize :: Monad m => DHT m Int
-askHashSize = _dhtConfigHashSize <$> ask
-
--- | A Possible bootstrap address.
-askBootstrapAddr :: Monad m => DHT m (Maybe Address)
-askBootstrapAddr = _dhtConfigBootstrapAddr <$> ask
-
--- | End a DHT with a DHTError.
-dhtError :: Monad m => DHTError -> DHT m a
-dhtError = DHT . const . failure
-
--- | End a DHT with a ETimeOut.
-timeOut :: Monad m => DHT m a
+-- End a DHT with a ETimeOut.
+timeOut :: Applicative m => DHT m a
 timeOut = dhtError ETimeOut
 
--- | End a DHT with an EInvalidResponse.
+-- End a DHT with an EInvalidResponse.
 invalidResponse :: Monad m => DHT m a
 invalidResponse = dhtError EInvalidResponse
 
--- | The current time
-timeNow :: (Monad m,Functor m) => DHT m Time
-timeNow = ask >>= liftDHT . Op.currentTime . _dhtConfigOps
 
--- | A random Int
-randomInt :: (Monad m,Functor m) => DHT m Int
-randomInt = ask >>= liftDHT . Op.randomInt . _dhtConfigOps
+{- Public accessors of config -}
 
--- wait for a response to a command
-waitResponse :: (Monad m,Functor m,Typeable (Out c)) => Command c -> In c -> DHT m (Out c)
-waitResponse cmd i = ask >>= liftDHT . (\op -> Op.wait op cmd i) . _dhtConfigOps
+-- | Our own ID.
+ourID :: Applicative m => DHT m ID
+ourID = DHT $ pure . Right . _configOurID
 
--- route a response to the correct waiing location
-routeResponse :: (Monad m,Functor m,Typeable (Out c)) => Command c -> Resp c -> DHT m ()
-routeResponse cmd resp = ask >>= liftDHT . (\op -> Op.route op cmd resp) . _dhtConfigOps
+-- | Our own address.
+ourAddress :: Applicative m => DHT m Address
+ourAddress = DHT $ pure . Right . _configOurAddress
 
--- send a bytestring to an address
-sendBytes :: (Monad m,Functor m) => Address -> ByteString -> DHT m ()
-sendBytes tAddr bs = ask >>= liftDHT . (\op -> Op.sendBytes op tAddr bs) . _dhtConfigOps
+-- | The Hash Size used for keys.
+hashSize :: Applicative m => DHT m Int
+hashSize = DHT $ pure . Right . _configHashSize
 
--- Send a (request/ response) Message, waiting for a response if we sent a request
--- and returning immediately if we sent a response.
-sendMessage :: (Monad m,Functor m
-               ,Binary (In c)
-               ,Binary (Resp c)
-               ,Typeable r
-               )
-            => Address -> Message t r c -> DHT m r
-sendMessage tAddr msg = do
-  let msgBs = encodeMessage msg
-  case msg of
-    -- Responses are simply sent
-    ResponseMsg _ _
-      -> sendBytes tAddr msgBs
-
-    -- Requests are sent but we wait for a response
-    RequestMsg cmd i
-      -> do sendBytes tAddr msgBs
-            waitResponse cmd i
-
-
--- receive a bytestring on the DHTs address. Note the sender.
-recvBytes :: Monad m => DHT m (Address,ByteString)
-recvBytes = do
-  addr   <- askOurAddr
-  ask >>= liftDHT . (\op -> Op.recvBytes op addr) . _dhtConfigOps
-
--- receive SomeMessage on the DHTs address. Note the sender.
-recvMessage :: Monad m => DHT m (Maybe (Address,SomeMessage))
-recvMessage = do
-  (sender,bs) <- recvBytes
-  let mMsg = decodeSomeMessage bs
-  case mMsg of
-    -- Sender sent garbage
-    Nothing
-      -> return Nothing
-
-    Just msg
-      -> return $ Just (sender,msg)
-
--- receive and handle a single incoming message
-recvAndHandleMessage :: Monad m => DHT m ()
-recvAndHandleMessage = do
-  mMsg <- recvMessage
-  case mMsg of
-    -- A received message hasnt parsed.
-    -- TODO: Might want to note this somehow.
-    Nothing
-      -> return ()
-
-    Just (sender,SomeMessage msg)
-      -> handleMessage sender msg
-
--- | Receive and handle all incoming messages.
--- You must either:
--- - Call this
--- - Manually pump recvAndHandleMessage
--- - Extra manually use 'decodeSomeMessage' and pass the result into
--- 'handleMessage' for the DHT to receive responses to your requests and serve
--- requests from other DHTs.
-recvAndHandleMessages :: Monad m => DHT m ()
-recvAndHandleMessages = do
-  recvAndHandleMessage
-  recvAndHandleMessages
-
--- insert a contact address into the routing table
--- LOCAL
-insertAddr :: (Monad m,Functor m) => Address -> DHT m ()
-insertAddr cAddr = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-
-  now <- Op.currentTime op
-  let DHT f = Op.insertAddress op cAddr now (\addr -> ping addr >> pure True)
-  f state
-
--- insert multiple contact addresses into the routing table, all at the same time
--- LOCAL
-insertAddrs :: (Monad m,Functor m) => [Address] -> DHT m ()
-insertAddrs cAddrs = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  now <- Op.currentTime op
-
-  let DHT f = mapM_ (\cAddr -> Op.insertAddress op cAddr now (\addr -> ping addr >> pure True)) cAddrs
-  f state
-
--- attempt lookup of a contact with the given ID. Also return the k closest Contacts
--- LOCAL
-lookupContact :: (Monad m,Functor m) => Address -> ID -> DHT m ([Contact],Maybe Contact)
-lookupContact enquirerAddr targetID = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  now <- Op.currentTime op
-
-  Right <$> Op.lookupContact op enquirerAddr targetID now
+-- | A Possible bootstrap address.
+bootstrapAddress :: Applicative m => DHT m (Maybe Address)
+bootstrapAddress = DHT $ pure . Right . _configBootstrapAddress
 
 -- | The k size is:
 -- - The number of IDs stored per bucket in the routing table
 -- - The number of neighbour contacts returned from queries if possible
 -- Currently (undesirably...) doubles as the number of bits in ID's.
 kSize :: (Monad m,Functor m) => DHT m Int
-kSize = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  Right <$> Op.kSize op
+kSize = DHT $ fmap Right . Op.kSize . _configOp
 
--- insert a value into the local storage ONLY
-insertValue :: (Monad m,Functor m) => ID -> ByteString -> DHT m ()
-insertValue keyID val = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  Right <$> Op.insertIDValue op keyID val
-
--- lookup a value from the local storage ONLY
-lookupValue :: (Monad m,Functor m) => ID -> DHT m (Maybe ByteString)
-lookupValue keyID = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  Right <$> Op.lookupIDValue op keyID
+{- Public operations -}
 
 -- | Log a string if the logging system is enabled.
 lg :: (Monad m,Functor m) => String -> DHT m ()
-lg s = DHT $ \state -> do
-  let op = _dhtConfigOps . _dhtStateConfig $ state
-  Right <$> Op.withLogging (maybe (pure ()) ($ s)) op
+lg s = DHT $ fmap Right . Op.withLogging (maybe (pure ()) ($ s)) . _configOp
+
+-- | The current time
+currentTime :: (Monad m,Functor m) => DHT m Time
+currentTime = DHT $ fmap Right . Op.currentTime . _configOp
+
+-- | A random Int
+randomInt :: (Monad m,Functor m) => DHT m Int
+randomInt = DHT $ fmap Right . Op.randomInt . _configOp
 
 
 {- DHT Operations on the networked DHT -}
 
--- | Send a ping to an 'Addres's.
+-- | Send a ping to an Address.
 ping :: (Monad m,Functor m) => Address -> DHT m ()
-ping tAddr = randomInt >>= \i -> pingThis i tAddr
+ping targetAddress = randomInt >>= \i -> pingThis i targetAddress
 
 -- | Send a ping to all the 'Address'es
 pingAll :: (Monad m,Functor m) => [Address] -> DHT m ()
@@ -350,18 +230,16 @@ pingAll = mapM_ ping
 
 -- | Send a ping with a specific Int to an 'Address'.
 pingThis :: (Monad m,Functor m) => Int -> Address -> DHT m ()
-pingThis i tAddr = do
-  j <- sendMessage tAddr $ PingRequestMsg i
+pingThis i targetAddress = do
+  j <- sendMessage targetAddress $ PingRequestMsg i
   unless (i == j) invalidResponse
 
 -- | Store a ByteString value at the appropriate place(s) in the DHT.
 store :: (Monad m,Functor m) => ByteString -> ByteString -> DHT m ID
 store key val = do
-  hashSize <- askHashSize
-  ourAddr  <- askOurAddr
-  let keyID = mkID key hashSize
-
-  res <- lookupContact ourAddr keyID
+  keyID   <- mkID <$> pure key <*> hashSize
+  ourAddr <- ourAddress
+  res     <- lookupContact ourAddr keyID
   let cts  = case res of
                (cs,Just c)  -> c:cs
                (cs,Nothing) -> cs
@@ -393,24 +271,24 @@ store key val = do
             . map show
             $ unexpectedIDs
 
-  return keyID
+  pure keyID
 
 -- Store a ByteString value at the given 'Addr'ess.
 storeAt :: (Monad m,Functor m) => ID -> ByteString -> Address -> DHT m ID
-storeAt keyID val tAddr = do
+storeAt keyID val targetAddress = do
   -- actualKeyID should be equal to the keyId we requested storage at
   let msg = StoreRequestMsg keyID val
-  actualKeyID <- sendMessage tAddr msg
+  actualKeyID <- sendMessage targetAddress msg
 
   -- TODO: Cache where we stored the value for faster retrieval?
-  insertAddr tAddr
+  insertAddress targetAddress
   return actualKeyID
 
 -- | Attempt to find the 'Contact' with the given 'ID' alongwith a list of the
 -- closest neighbour Contacts. Searches the global DHT if necessary.
 findContact :: (Monad m,Functor m) => ID -> DHT m ([Contact],Maybe Contact)
 findContact cID = do
-  ourAddr <- askOurAddr
+  ourAddr <- ourAddress
   res     <- lookupContact ourAddr cID
   case res of
 
@@ -423,7 +301,7 @@ findContact cID = do
 -- closest neighbor Contacts. Searches the global DHT if necessary.
 findValue :: (Monad m,Functor m) => ID -> DHT m ([Contact],Maybe ByteString)
 findValue vID = do
-  ourAddr <- askOurAddr
+  ourAddr <- ourAddress
   res     <- lookupContact ourAddr vID
   let cts = case res of
               -- TODO: Same as 'findContact' TODO (which we could probably share more code with)
@@ -467,22 +345,67 @@ findData cmmnd input = findData' cmmnd input []
     flattenResults :: Eq l => [([l],Maybe d)] -> ([l],Maybe d)
     flattenResults = first nub . foldr (\(xLs,xmr) (accLs,mr) -> (xLs ++ accLs, mplus mr xmr)) ([],Nothing)
 
+
+{- DHT operations on local client -}
+
+-- | Attempt lookup of a contact with the given ID. Also return the k closest Contacts
+-- LOCAL
+lookupContact :: (Monad m,Functor m) => Address -> ID -> DHT m ([Contact],Maybe Contact)
+lookupContact enquirerAddr targetID = DHT $ \config -> do
+  now <- Op.currentTime (_configOp config)
+  Right <$> Op.lookupContact (_configOp config) enquirerAddr targetID now
+
+-- | Lookup a value from the local storage ONLY
+lookupValue :: (Monad m,Functor m) => ID -> DHT m (Maybe ByteString)
+lookupValue keyID = DHT $ fmap Right . (\op -> Op.lookupIDValue op keyID) . _configOp
+
+-- TODO: Any reason not to export the following functions on the local state?
+
+-- insert a contact address into the routing table
+-- LOCAL
+insertAddress :: (Monad m, Functor m) => Address -> DHT m ()
+insertAddress contactAddress = DHT $ \config -> do
+  let op = _configOp config
+  now <- Op.currentTime op
+
+  let DHT f = Op.insertAddress op contactAddress now (\addr -> ping addr >> pure True)
+  f config
+
+-- insert multiple contact addresses into the routing table, all at the same
+-- time.
+-- LOCAL
+insertAddresses :: (Monad m, Functor m) => [Address] -> DHT m ()
+insertAddresses contactAddresses = DHT $ \config -> do
+  let op = _configOp config
+  now <- Op.currentTime op
+
+  let DHT f = mapM_ (\contactAddress -> Op.insertAddress op contactAddress now (\addr -> ping addr >> pure True)) contactAddresses
+  f config
+
+-- insert a value into the local storage ONLY
+insertValue :: (Monad m, Functor m) => ID -> ByteString -> DHT m ()
+insertValue keyID val = DHT $ \config -> do
+  let op = _configOp config
+  Right <$> Op.insertIDValue op keyID val
+
+
+
+{- DHT Lifecycle functions -}
+
 -- | Execute a DHT program with the given configuration parameters.
+--
+-- You will likely wish to call 'DHT Lifecycle' functions in appropriate places.
+-- E.G.
+-- - 'startMessaging' before/ asynchronously.
+-- - 'bootstrap' as an initial operation in the DHT.
+-- - 'quitDHT' as a final operation in the DHT.
 runDHT :: Monad m
-       => DHTConfig DHT m
+       => Config DHT m
        -> DHT m a
        -> m (Either DHTError a)
-runDHT dhtConfig dhtProgram =
-  let -- The state is the user config and an ID we're assigining to ourself
-      -- based upon it.
-      ourAddr    = _dhtConfigAddr dhtConfig
-      hashSize   = _dhtConfigHashSize dhtConfig
-      ourID      = mkID ourAddr hashSize
-      dhtState   = DHTState dhtConfig ourID
+runDHT config program = _runDHT program config
 
-     in _runDHT dhtProgram dhtState
-
--- | For the DHT to actually send and recieve messages, you probably want to run
+-- | For the DHT to actually send and receive messages, you probably want to run
 -- this in the background E.G. with a forkIO.
 -- Alternatively:
 -- - Run 'recvAndHandleMessages' with your Config whenever appropriate.
@@ -491,35 +414,32 @@ runDHT dhtConfig dhtProgram =
 -- 'handleMessage'.
 startMessaging
   :: Monad m
-  => DHTConfig DHT m
+  => Config DHT m
   -> m (Either DHTError ())
 startMessaging dhtConfig = runDHT dhtConfig recvAndHandleMessages
 
 -- | Bootstrap against the DHTs configured bootstrap address.
 bootstrap :: Monad m => DHT m ()
-bootstrap = do
-  config <- ask
-  let mBootstrapAddr = _dhtConfigBootstrapAddr config
-  case mBootstrapAddr of
-    -- TODO: Log that we havnt?
-    Nothing
-      -> return ()
+bootstrap = bootstrapAddress >>= \addr -> case addr of
+  Nothing
+    -> lg "Bootstrapping without a configured address will do nothing."
 
-    Just bootstrapAddr
-      -> bootstrapFrom bootstrapAddr
+  Just bootstrapAddr
+    -> bootstrapFrom bootstrapAddr
 
 -- | Bootstrap against a bootstrap address.
 bootstrapFrom :: (Monad m,Functor m) => Address -> DHT m ()
-bootstrapFrom bAddr = do
+bootstrapFrom bootstrapAddress = do
   -- TODO: Maybe check they exist or respond to messages first?
-  insertAddr bAddr
+  insertAddress bootstrapAddress
 
   -- ask for our neighbours
-  ourID   <- askOurID
-  ourAddr <- askOurAddr
-  res     <- findContact ourID
+  id   <- ourID
+  addr <- ourAddress
+  res  <- findContact id
   let cts = case res of
-              (cs,Nothing) -> cs
+              (cs,Nothing)
+                -> cs
 
               -- We're already known:
               (cs,Just c)
@@ -530,11 +450,13 @@ bootstrapFrom bAddr = do
                 --
                 -- 2. Havnt been forgotten since a previous session.
                 -- We *should* be able to just continue where we left of
-                | contactAddress c == ourAddr -> cs
+                | contactAddress c == addr
+                 -> cs
 
                 -- 3. Somebody elses ID has collided with us
                 -- TODO: Do something reasonable other than nothing. Maybe change how IDs are picked.
-                | otherwise -> []
+                | otherwise
+                 -> []
 
   -- ping all of our neighbours so they know we exist and might enter their routing table.
   pingAll $ map contactAddress cts
@@ -545,16 +467,17 @@ bootstrapFrom bAddr = do
 quitDHT :: Monad m => DHT m ()
 quitDHT = return ()
 
-
 -- | Handle an incoming message which has been sent to us.
 -- The sender is potentially added to our routing table.
-handleMessage :: (Monad m,Functor m
-                 ,Typeable (Out c)
-                 ,Show (Resp c)
-                 )
-              => Address -> Message mt mr c -> DHT m ()
-handleMessage enquirerAddr msg = do
-  insertAddr enquirerAddr
+handleMessage
+  :: ( Monad m
+     , Functor m
+     , Typeable (Out c)
+     , Show (Resp c)
+     )
+  => Address -> Message mt mr c -> DHT m ()
+handleMessage enquirerAddress msg = do
+  insertAddress enquirerAddress
   case msg of
 
     -- Handle a request that we do something, and return the result
@@ -562,37 +485,120 @@ handleMessage enquirerAddr msg = do
 
       -- Echo the ping back
       Ping
-        -> sendMessage enquirerAddr $ PingResponseMsg cmdInput
+        -> sendMessage enquirerAddress $ PingResponseMsg cmdInput
 
       -- Store the value in our hashmap and reply the values ID hash
       Store
         -> do k <- kSize
               let (keyID,val) = cmdInput
               insertValue keyID val
-              sendMessage enquirerAddr $ StoreResponseMsg keyID
+              sendMessage enquirerAddress $ StoreResponseMsg keyID
 
       -- Lookup the requested contact ID locally
       FindContact
-        -> do res <- lookupContact enquirerAddr cmdInput
-              sendMessage enquirerAddr $ FindContactResponseMsg cmdInput res
+        -> do res <- lookupContact enquirerAddress cmdInput
+              sendMessage enquirerAddress $ FindContactResponseMsg cmdInput res
 
       -- Lookup the requested value ID locally
       FindValue
         -> do mv <- lookupValue cmdInput
 
               -- k-closest contact near to the value
-              res <- lookupContact enquirerAddr cmdInput
+              res <- lookupContact enquirerAddress cmdInput
 
               let nbs = case res of
                           (ns,Nothing) -> ns
                           (ns,Just n)  -> n:ns
 
               case mv of
-                Just v  -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Just v)
-                Nothing -> sendMessage enquirerAddr $ FindValueResponseMsg cmdInput (nbs,Nothing)
+                Just v  -> sendMessage enquirerAddress $ FindValueResponseMsg cmdInput (nbs,Just v)
+                Nothing -> sendMessage enquirerAddress $ FindValueResponseMsg cmdInput (nbs,Nothing)
 
     -- A response to a query we probably made. 'routeResponse' is delegated to
     -- checking its actually in response to something we sent and routing it to wherever is waiting for the response
     ResponseMsg cmd r
       -> routeResponse cmd r
+
+-- receive and handle a single incoming message
+recvAndHandleMessage :: Monad m => DHT m ()
+recvAndHandleMessage = do
+  mMsg <- recvMessage
+  case mMsg of
+    -- A received message hasnt parsed.
+    -- TODO: Might want to note this somehow.
+    Nothing
+      -> return ()
+
+    Just (sender,SomeMessage msg)
+      -> handleMessage sender msg
+
+-- | Receive and handle all incoming messages.
+-- You must either:
+-- - Call this
+-- - Manually pump recvAndHandleMessage
+-- - Extra manually use 'decodeSomeMessage' and pass the result into
+-- 'handleMessage' for the DHT to receive responses to your requests and serve
+-- requests from other DHTs.
+recvAndHandleMessages :: Monad m => DHT m ()
+recvAndHandleMessages = forever recvAndHandleMessage
+
+
+{- Internal/ networking operations -}
+
+-- wait for a response to a command
+waitResponse
+  :: ( Functor m
+     , Typeable (Out c)
+     )
+  => Command c -> In c -> DHT m (Out c)
+waitResponse cmd input = DHT $ fmap Right . (\op -> Op.wait op cmd input). _configOp
+
+-- route a response to the correct waiing location
+routeResponse
+  :: ( Functor m
+     , Typeable (Out c)
+     )
+  => Command c -> Resp c -> DHT m ()
+routeResponse cmd resp = DHT $ fmap Right . (\op -> Op.route op cmd resp) . _configOp
+
+-- send a bytestring to an address
+sendBytes :: Functor m => Address -> ByteString -> DHT m ()
+sendBytes targetAddress bs = DHT $ fmap Right . (\op -> Op.sendBytes op targetAddress bs) . _configOp
+
+-- Send a (request/ response) Message, waiting for a response if we sent a request
+-- and returning immediately if we sent a response.
+sendMessage :: (Monad m,Functor m
+               ,Binary (In c)
+               ,Binary (Resp c)
+               ,Typeable r
+               )
+            => Address -> Message t r c -> DHT m r
+sendMessage tAddr msg = do
+  let msgBs = encodeMessage msg
+  case msg of
+    -- Responses are simply sent
+    ResponseMsg _ _
+      -> sendBytes tAddr msgBs
+
+    -- Requests are sent but we wait for a response
+    RequestMsg cmd i
+      -> do sendBytes tAddr msgBs
+            waitResponse cmd i
+
+-- receive a bytestring on the DHTs address. Note the sender.
+recvBytes :: Monad m => DHT m (Address,ByteString)
+recvBytes = DHT $ \config -> fmap Right $ Op.recvBytes (_configOp config) (_configOurAddress config)
+
+-- receive SomeMessage on the DHTs address. Note the sender.
+recvMessage :: Monad m => DHT m (Maybe (Address,SomeMessage))
+recvMessage = do
+  (sender,bs) <- recvBytes
+  let mMsg = decodeSomeMessage bs
+  case mMsg of
+    -- Sender sent garbage
+    Nothing
+      -> return Nothing
+
+    Just msg
+      -> return $ Just (sender,msg)
 

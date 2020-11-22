@@ -37,7 +37,7 @@ lgPrefix p str = lg (p <> str)
 -- Prefix a log string with a name and our id
 lgAt :: String -> String -> DHT IO ()
 lgAt name str = do
-  id <- askOurID
+  id <- ourID
   lgPrefix (show id <> " " <> name <> " :\t") str
 
 -- Store two values in the DHT, then show their IDs then try and retrieve the
@@ -84,9 +84,9 @@ testStore = do
 testLookup :: DHT IO ()
 testLookup = do
   lgHere "Assuming values might have been stored by somebody else for \"Hello\" and \"foo\", lookup the values."
-  hashSize <- askHashSize
-  mVal0 <- findValue (mkID ("Hello"::Lazy.ByteString) hashSize)
-  mVal1 <- findValue (mkID ("foo"::Lazy.ByteString) hashSize)
+  size <- hashSize
+  mVal0 <- findValue (mkID ("Hello"::Lazy.ByteString) size)
+  mVal1 <- findValue (mkID ("foo"::Lazy.ByteString) size)
   lgFindResponse mVal0
   lgFindResponse mVal1
   return ()
@@ -113,7 +113,7 @@ testLookup = do
 -- our own ID.
 testNeighbours :: DHT IO ()
 testNeighbours = do
-  id <- askOurID
+  id <- ourID
   lgHere $ "Our ID is" ++ show id
 
   lgHere "Attempt to find the neighbours of our ID"
@@ -141,14 +141,14 @@ main :: IO ()
 main = do
   -- Create a logger to share across our example nodes
   mLogging <- newSimpleLogging
-  let hashSize = 8
+  let size = 8
 
       -- Make the config for one of our test nodes at a given addr
       -- Decide whether to bootstrap off the designated bootstrap address.
-      mkConfig :: Address -> Bool -> IO (DHTConfig DHT IO)
+      mkConfig :: Address -> Bool -> IO (Config DHT IO)
       mkConfig ourAddr shouldBootstrap
         = let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
-             in mkSimpleNodeConfig ourAddr hashSize mLogging mBootstrapAddr
+             in mkSimpleNodeConfig ourAddr size mLogging mBootstrapAddr
 
       -- Asynchronously run a test node with a name and start delay,
       -- deciding whether to bootstrap off the designated bootstrap address.

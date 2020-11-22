@@ -11,6 +11,7 @@ module DHT.SimpleNode.RoutingTable
 import Prelude hiding (insert,lookup)
 
 import DHT
+import DHT.Client
 import DHT.Core
 
 import Control.Concurrent
@@ -20,12 +21,12 @@ type RTState = MVar Routing
 -- Insert a new address into the routingtable, pinging questionable nodes with
 -- the ping function to update them if required.
 rtInsert :: RTState -> Address -> Time -> (Address -> DHT IO Bool) -> DHT IO ()
-rtInsert rtState addr time ping = do
+rtInsert rtState address time ping = do
   rt  <- liftDHT $ takeMVar rtState
 
-  hashSize <- askHashSize
+  size <- hashSize
 
-  rt' <- insert addr time ping hashSize rt
+  rt' <- insert address time ping size rt
   liftDHT $ putMVar rtState rt'
 
 -- Lookup the Contact associated with an 'ID', also return k neighbour contacts
