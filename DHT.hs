@@ -366,16 +366,21 @@ store key val = do
                (cs,Just c)  -> c:cs
                (cs,Nothing) -> cs
 
-  -- TODO: If the list of targets to store at is empty we should probably
-  -- indicate this in the return value?
+  -- If there are no contacts to store at, store locally.
+  --
+  -- TODO: It's possible this should be a failure case.
+  -- Or we should block waiting for contacts.
+  -- Or the stored values should be queued to be stored later.
+  --   Is/ can this be a responsibility of the value store?
   when (cts == [])
-    . lg
-    . mconcat
-    $ ["WARN: Found no contacts to store key: "
-      , show key
-      , " with id "
-      , show keyID
-      ]
+    $ do lg . mconcat
+            $ ["WARN: Found no contacts to store key: "
+              , show key
+              , " with id "
+              , show keyID
+              , " so we're storing locally"
+              ]
+         insertValue keyID val
 
   -- TODO: If the messaging system has returned non-matching ID's in
   -- acknowledgment, we should mark the culprits as bad contacts/ surface an
