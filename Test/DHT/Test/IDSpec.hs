@@ -2,7 +2,6 @@
 module DHT.Test.IDSpec where
 
 import DHT.ID
-import DHT.Bits
 
 import Test.Hspec
 
