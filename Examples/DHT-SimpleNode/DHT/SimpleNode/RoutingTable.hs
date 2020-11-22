@@ -41,12 +41,12 @@ rtLookup rtState enquirerAddr targetID now hashSize = do
   putMVar rtState rt'
   return res
 
-newSimpleRoutingTable :: Int -> ID -> Time -> Int -> IO (RoutingTableOp DHT IO)
-newSimpleRoutingTable size ourID now hashSize = mkRoutingTable <$> newRTState
-  where
-    mkRoutingTable rtState = RoutingTableOp (rtInsert rtState)
-                                            (\addr enquirer time
-                                              -> rtLookup rtState addr enquirer time hashSize)
-                                            (pure size)
-    newRTState = newMVar $ empty size ourID now
+newSimpleRoutingTable :: Int -> ID -> Time -> Int -> IO (RoutingTable DHT IO)
+newSimpleRoutingTable size ourID now hashSize = do
+  rtState <- newMVar $ empty size ourID now
+  pure $ mkRoutingTable
+    (rtInsert rtState)
+    (\addr enquirer time
+      -> rtLookup rtState addr enquirer time hashSize)
+    (pure size)
 

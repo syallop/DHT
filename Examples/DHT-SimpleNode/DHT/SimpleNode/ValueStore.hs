@@ -32,11 +32,8 @@ valLookup valState vID = do
   return $ Map.lookup vID vs
 
 -- | Create a new empty ValueStore to be used by a DHT.
-newSimpleValueStore :: IO (ValueStoreOp IO)
-newSimpleValueStore = mkValueStore <$> newValState
-  where
-    mkValueStore valState = ValueStoreOp (valInsert valState) (valLookup valState)
-
-    newValState :: IO ValState
-    newValState = newMVar Map.empty
+newSimpleValueStore :: IO (ValueStore IO)
+newSimpleValueStore = do
+  valState <- newMVar Map.empty
+  pure $ mkValueStore (valInsert valState) (valLookup valState)
 

@@ -2,6 +2,8 @@ resolver: lts-15.11
 
 packages:
 - .
+- ./Examples/DHT-SimpleNode
+- ./Examples/DHT-SimpleNode/Examples/DHT-SimpleNode-Example
 
 extra-deps: []
 

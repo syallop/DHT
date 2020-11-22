@@ -13,7 +13,7 @@ import Control.Monad
 import DHT
 
 -- | Create a new logging system which outputs to stdout
-newSimpleLogging :: IO (LoggingOp IO)
+newSimpleLogging :: IO (Logging IO)
 newSimpleLogging = do
   loggingState <- newChan
   forkIO $ forever $ readChan loggingState >>= putStrLn

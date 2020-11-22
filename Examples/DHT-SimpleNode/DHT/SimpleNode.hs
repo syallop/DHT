@@ -16,6 +16,7 @@ import           Data.Time.Clock.POSIX
 import           System.Random
 
 import DHT
+import qualified DHT.Op as Op
 import DHT.Address
 import DHT.Contact
 import DHT.ID
@@ -30,7 +31,7 @@ import Control.Monad
 mkSimpleNodeConfig
   :: Address
   -> Int
-  -> LoggingOp IO
+  -> Logging IO
   -> Maybe Address
   -> IO (DHTConfig DHT IO)
 mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
@@ -39,13 +40,7 @@ mkSimpleNodeConfig ourAddr hashSize logging mBootstrapAddr = do
   valueStore   <- newSimpleValueStore
   messaging    <- newSimpleMessaging hashSize (maxPortLength,ourAddr)
 
-  let ops = DHTOp { _dhtOpTimeOp         = timeF
-                  , _dhtOpRandomIntOp    = randF
-                  , _dhtOpMessagingOp    = messaging
-                  , _dhtOpRoutingTableOp = routingTable
-                  , _dhtOpValueStoreOp   = valueStore
-                  , _dhtOpLoggingOp      = logging
-                  }
+  let ops = Op.mkOp timeF randF messaging routingTable valueStore logging
   return $ DHTConfig ops ourAddr hashSize mBootstrapAddr
   where
     timeF :: IO Time

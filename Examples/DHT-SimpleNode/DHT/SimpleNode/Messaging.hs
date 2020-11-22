@@ -49,13 +49,13 @@ modifyMessagingState (MessagingState msgState) f = modifyMVar msgState f
 -- all messages have a preceding 'replyport' padded to the given maximum port length.
 -- - Routes and waits on messages using MVars and a notion of pattern matching (rather than, for
 -- example including 'unique' tokens in sent messages).
-newSimpleMessaging :: Int -> (Int,Address) -> IO (MessagingOp IO)
+newSimpleMessaging :: Int -> (Int,Address) -> IO (Messaging IO)
 newSimpleMessaging size (maxPortLength,ourAddress) = do
   let Just (_, ourPort) = extractIPV4UDP ourAddress
 
   msgState <- newMessagingState
 
-  return $ MessagingOp (waitF msgState size)
+  return $ mkMessaging (waitF msgState size)
                        (routeF msgState)
                        (sendF msgState (maxPortLength,ourPort))
                        (recvF msgState)

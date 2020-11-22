@@ -1,12 +1,34 @@
 # Haskell Distributed HashTable
-This project defines an API for building a distributed HashTable in Haskell,
+This project defines an API for building a Distributed HashTable in Haskell,
 built upon a small set of core commands and abstracted over several
 dependencies such as messaging; routing; storage and logging.
 
-A concrete example implementation is found under 'Examples/DHT-SimpleNode' which
-instantiates a DHT using UDP, MVars, in-memory hashmaps etc. This example has its own example (yo dawg...) under
-'Examples/DHT-SimpleNode/Examples/DHT-SimpleNode-Example' which runs several
-SimpleNodes and tests their operations.
+This repository provides:
+1. Core DHT types that model the domain
+  - Including `Address`, `Bits`, `IDs`, `Buckets`, `Routing`
+
+2. A Client-Server(/Client) serialization protocol
+  - Defined by `Commands`, `Messages`
+  - Describes a core set of commands each client must support
+  - Provides a Byte level encoding, agnostic of transport
+
+3. User-level DHT operations
+  - Defined within `DHT`
+  - Build monadic computations that interact with your code to store, lookup and
+    ping the DHT.
+
+4. Basic, example concrete DHT choices
+  - Interface described by `DHT.Op.*
+  - Basic implementation under `Examples/DHT-SimpleNode` using IO, udp servers,
+    in-memory storage and MVar synchronisation.
+
+This (over)abstraction allows:
+- Programs against the DHT to swap out their implementation (or be easily mocked). Some choices that might be made:
+  - Storage: Memory, Disk, redundancy, eviction, etc
+  - Messaging: Reliablility, trust, retries, timeouts, etc
+  - Routing: How to transition Contacts between being `Good <-> Questionable <-> Bad` etc
+
+NOTE: This project is experimental and the API is likely to change. The SimpleNode implementation in particular is provided as an example only.
 
 ## Module Structure
 Some of the main modules are:
@@ -63,24 +85,6 @@ runDHT
 ```
 
 To build a 'DHTConfig' you need to make several choices:
-```haskell
-let myOperations = DHTOp
-      {_dhtOpTimeOp         :: m Time               -- ^ Determine the current time
-      ,_dhtOpRandomIntOp    :: m Int                -- ^ Generate a random Int
-      ,_dhtOpMessagingOp    :: MessagingOp m        -- ^ Sending, waiting and routing messages
-      ,_dhtOpRoutingTableOp :: RoutingTableOp dht m -- ^ Insert and lookup of (some) known addresses
-      ,_dhtOpValueStoreOp   :: ValueStoreOp m       -- ^ Store and retrieve values by ID.
-      ,_dhtOpLoggingOp      :: LoggingOp m          -- ^ How and whether to log output.
-      }
-
-    myConfig = DHTConfig
-      {_dhtConfigOps      = myOperations
-      ,_dhtConfigAddr     = Addr "127.0.0.1" 6666   -- ^ Address to bind on
-      ,_dhtConfigHashSize = 8                       -- ^ Size of IDs
-      }
-```
-
-The larger subsystems are responsible for:
 
 | Subsystem    | Responsibilities                                                                                                                                                                                            |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -89,7 +93,7 @@ The larger subsystems are responsible for:
 | ValueStore   | <ul> <li>Storage and retrieval of stored ByteStrings associated to an ID</li></ul>                                                                                                                          |
 | Logging      | <ul> <li>Whether and how to log given Strings</li> </ul>                                                                                                                                                    |
 
-Imlement these subsystems by importing `DHT.Op.SUBSYSTEM`.
+Implement these subsystems by importing `DHT.Op.SUBSYSTEM`.
 
 ## Example
 
