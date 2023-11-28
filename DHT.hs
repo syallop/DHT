@@ -69,6 +69,11 @@ module DHT
   , randomInt
   , joinDHT
   , liftDHT
+
+  -- * Errors
+  , dhtError
+  , timeOut
+  , invalidResponse
   )
   where
 
@@ -117,12 +122,12 @@ mkConfig
   -> Int            -- ^ How many bits to use in IDs.
   -> Maybe Address  -- ^ Address to bootstrap from.
   -> Config dht m
-mkConfig op ourAddress hashSize bootstrapAddress = Config
+mkConfig op addr hashSizeBits bootstrapAddr = Config
   { _configOp               = op
-  , _configOurAddress       = ourAddress
-  , _configOurID            = mkID ourAddress hashSize
-  , _configHashSize         = hashSize
-  , _configBootstrapAddress = bootstrapAddress
+  , _configOurAddress       = addr
+  , _configOurID            = mkID addr hashSizeBits
+  , _configHashSize         = hashSizeBits
+  , _configBootstrapAddress = bootstrapAddr
   }
 
 {- The DHT type, it's instances and public, primitive operations -}
@@ -364,22 +369,11 @@ lookupValue keyID = DHT $ fmap Right . (\op -> Op.lookupIDValue op keyID) . _con
 -- insert a contact address into the routing table
 -- LOCAL
 insertAddress :: (Monad m, Functor m) => Address -> DHT m ()
-insertAddress contactAddress = DHT $ \config -> do
+insertAddress contact = DHT $ \config -> do
   let op = _configOp config
   now <- Op.currentTime op
 
-  let DHT f = Op.insertAddress op contactAddress now (\addr -> ping addr >> pure True)
-  f config
-
--- insert multiple contact addresses into the routing table, all at the same
--- time.
--- LOCAL
-insertAddresses :: (Monad m, Functor m) => [Address] -> DHT m ()
-insertAddresses contactAddresses = DHT $ \config -> do
-  let op = _configOp config
-  now <- Op.currentTime op
-
-  let DHT f = mapM_ (\contactAddress -> Op.insertAddress op contactAddress now (\addr -> ping addr >> pure True)) contactAddresses
+  let DHT f = Op.insertAddress op contact now (\addr -> ping addr >> pure True)
   f config
 
 -- insert a value into the local storage ONLY
@@ -429,14 +423,13 @@ bootstrap = bootstrapAddress >>= \addr -> case addr of
 
 -- | Bootstrap against a bootstrap address.
 bootstrapFrom :: (Monad m,Functor m) => Address -> DHT m ()
-bootstrapFrom bootstrapAddress = do
+bootstrapFrom bootstrapAddr = do
   -- TODO: Maybe check they exist or respond to messages first?
-  insertAddress bootstrapAddress
+  insertAddress bootstrapAddr
 
   -- ask for our neighbours
-  id   <- ourID
   addr <- ourAddress
-  res  <- findContact id
+  res  <- ourID >>= findContact
   let cts = case res of
               (cs,Nothing)
                 -> cs
@@ -489,8 +482,7 @@ handleMessage enquirerAddress msg = do
 
       -- Store the value in our hashmap and reply the values ID hash
       Store
-        -> do k <- kSize
-              let (keyID,val) = cmdInput
+        -> do let (keyID,val) = cmdInput
               insertValue keyID val
               sendMessage enquirerAddress $ StoreResponseMsg keyID
 

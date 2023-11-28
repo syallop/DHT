@@ -32,14 +32,14 @@ mkSimpleNodeConfig
   -> Logging IO
   -> Maybe Address
   -> IO (Config DHT IO)
-mkSimpleNodeConfig ourAddress hashSize logging mBootstrapAddress = do
+mkSimpleNodeConfig ourAddr commonHashSize logging mBootstrapAddress = do
   now          <- timeF
-  routingTable <- newSimpleRoutingTable maxBucketSize ourID now hashSize
+  routingTable <- newSimpleRoutingTable ourBucketSize ourCID now commonHashSize
   valueStore   <- newSimpleValueStore
-  messaging    <- newSimpleMessaging hashSize (maxPortLength, ourAddress)
+  messaging    <- newSimpleMessaging commonHashSize (maxPortLength, ourAddr)
 
   let ops = Op.mkOp timeF randF messaging routingTable valueStore logging
-  pure $ mkConfig ops ourAddress hashSize mBootstrapAddress
+  pure $ mkConfig ops ourAddr commonHashSize mBootstrapAddress
   where
     timeF :: IO Time
     timeF = round <$> getPOSIXTime
@@ -47,11 +47,11 @@ mkSimpleNodeConfig ourAddress hashSize logging mBootstrapAddress = do
     randF :: IO Int
     randF = randomRIO (0,maxBound)
 
-    ourID = mkID ourAddress hashSize
+    ourCID = mkID ourAddr commonHashSize
 
     maxPortLength = 5
 
-    maxBucketSize = 8
+    ourBucketSize = 8
 
 -- | Start a new node with some configuration.
 -- - Will handle incoming messages for the duration of the given program.
@@ -60,6 +60,6 @@ newSimpleNode :: Config DHT IO
               -> DHT IO a
               -> IO (Either DHTError a)
 newSimpleNode config dht = do
-  forkIO $ void $ startMessaging config
+  _threadID <- forkIO $ void $ startMessaging config
   runDHT config $ bootstrap >> dht
 

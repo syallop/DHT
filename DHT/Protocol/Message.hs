@@ -3,6 +3,7 @@
   , FlexibleContexts
   , GADTs
   , PatternSynonyms
+  , LambdaCase
   , RankNTypes
   #-}
 {-|
@@ -22,9 +23,7 @@ module DHT.Protocol.Message
   , pattern PingRequestMsg
   , pattern StoreRequestMsg
   , pattern FindContactRequestMsg
-  , pattern FindContactAtRequestMsg
   , pattern FindValueRequestMsg
-  , pattern FindValueAtRequestMsg
 
   -- ** Specialised responses
   , pattern PingResponseMsg
@@ -44,6 +43,7 @@ module DHT.Protocol.Message
 
 import DHT.Core.Address
 import DHT.Core.Contact
+import DHT.Core.ID
 import DHT.Protocol.Command
 
 import Data.Binary
@@ -71,7 +71,7 @@ instance Show (Message mt mr c) where
   show = showMessage
 
 showMessage :: Message mt mr c -> String
-showMessage msg = case msg of
+showMessage = \case
   RequestMsg cmd i -> "REQ " ++ show cmd ++ " " ++ case cmd of
     Ping        -> show i
     Store       -> let (keyId,msg) = i
@@ -87,25 +87,52 @@ showMessage msg = case msg of
 
 -- | Encode a 'Message' to a ByteString.
 encodeMessage :: (Binary (In c), Binary (Resp c)) => Message mt mr c -> ByteString
-encodeMessage msg = runPut $ case msg of
-    RequestMsg  c i -> putWord8 0 >> put (commandTag c) >> put i
-    ResponseMsg c r -> putWord8 1 >> put (commandTag c) >> put r
+encodeMessage = runPut . \case
+  RequestMsg  c i -> putWord8 0 >> put (commandTag c) >> put i
+  ResponseMsg c r -> putWord8 1 >> put (commandTag c) >> put r
 
 
 -- request conveniences
-pattern PingRequestMsg          i       = RequestMsg Ping        i
-pattern StoreRequestMsg         kID val = RequestMsg Store (kID,val)
-pattern FindContactRequestMsg   cID     = RequestMsg FindContact cID
-pattern FindContactAtRequestMsg cID     = RequestMsg FindContact cID
-pattern FindValueRequestMsg     vID     = RequestMsg FindValue   vID
-pattern FindValueAtRequestMsg   vID     = RequestMsg FindValue   vID
+
+-- | A request to ping a remote address, expecting a ping in return.
+pattern PingRequestMsg :: Int -> Message Address Int 'PING
+pattern PingRequestMsg i = RequestMsg Ping i
+
+-- | A request to a remote address to store a value, expecting the ID to be
+-- acknowledged in return.
+pattern StoreRequestMsg :: ID -> ByteString -> Message Address ID 'STORE
+pattern StoreRequestMsg kID val = RequestMsg Store (kID,val)
+
+-- | A request to either the local server or a remote address to find a Contact
+-- (alongside any possible neighbours).
+pattern FindContactRequestMsg :: ID -> Message (Either () Address) ([Contact],Maybe Contact) 'FINDCONTACT
+pattern FindContactRequestMsg cID = RequestMsg FindContact cID
+
+-- | A request to either the local server or a remote address to find a value
+-- (alongside any possible neighbouring contacts).
+pattern FindValueRequestMsg :: ID -> Message (Either () Address) ([Contact], Maybe ByteString) 'FINDVALUE
+pattern FindValueRequestMsg vID = RequestMsg FindValue   vID
 
 -- response conveniences
-pattern PingResponseMsg        i       = ResponseMsg Ping        i
-pattern StoreResponseMsg       vID     = ResponseMsg Store       vID
-pattern FindContactResponseMsg cID res = ResponseMsg FindContact (cID,res)
-pattern FindValueResponseMsg   vID res = ResponseMsg FindValue   (vID,res)
 
+-- | A response to a remote address with a ping payload.
+pattern PingResponseMsg :: Int -> Message Address () 'PING
+pattern PingResponseMsg i = ResponseMsg Ping i
+
+-- | A response to a remote address, acknowledging that a value with the given
+-- ID was stored.
+pattern StoreResponseMsg :: ID -> Message Address () 'STORE
+pattern StoreResponseMsg vID = ResponseMsg Store vID
+
+-- | A response to a remote address, reporting a possible found contact and any
+-- neighbours.
+pattern FindContactResponseMsg :: ID -> ([Contact], Maybe Contact) -> Message Address () 'FINDCONTACT
+pattern FindContactResponseMsg cID res = ResponseMsg FindContact (cID,res)
+
+-- | A response to a remote address, reporting a possible found value and any
+-- neighbouring contacts.
+pattern FindValueResponseMsg :: ID -> ([Contact], Maybe ByteString) -> Message Address () 'FINDVALUE
+pattern FindValueResponseMsg vID res = ResponseMsg FindValue (vID,res)
 
 -- | A 'Message' whose 'CMD' type 'c' is unknown.
 data SomeMessage = forall mt mr c. (Typeable (Out c),Show (Resp c),Show (In c)) => SomeMessage (Message mt mr c)

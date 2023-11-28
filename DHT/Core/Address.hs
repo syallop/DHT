@@ -1,6 +1,7 @@
 {-# LANGUAGE
     DeriveDataTypeable
   , DeriveGeneric
+  , LambdaCase
   #-}
 {-|
 Stability : experimental
@@ -97,7 +98,7 @@ parts address = case address of
 
 -- | Construct an Address from a (non-empty) sequence of it's AddressParts.
 fromParts :: AddressPart -> [AddressPart] -> Address
-fromParts part1 parts = case parts of
+fromParts part1 = \case
   []
     -> Address part1
 

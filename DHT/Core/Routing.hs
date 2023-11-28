@@ -117,6 +117,7 @@ empty maxSize ourID now = Routing maxSize ourID $ Leaf $ emptyBucket now
 {- INSERT -}
 -- A path down a binary tree is a bitstring
 newtype Path = Path {_unPath :: Bits}
+pattern L, R :: Bit
 pattern L = Zero
 pattern R = One
 

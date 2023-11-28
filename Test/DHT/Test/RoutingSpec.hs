@@ -90,9 +90,9 @@ spec = do
         -- Addresses with a different ID to us
         differentAddresses :: [Address]
         differentAddresses
-          = map    (\(addr,_id) -> addr)
-          . filter (\(addr, id) -> id /= ourID)
-          . map    (\addr       -> (addr, mkID addr idSize))
+          = map    (\(addr,_id)   -> addr)
+          . filter (\(_addr, cId) -> cId /= ourID)
+          . map    (\addr         -> (addr, mkID addr idSize))
           $ localhostAddresses
 
         -- An address with a different ID to us
@@ -103,18 +103,18 @@ spec = do
         -- considered 'Near'.
         nearAddresses :: Int -> [Address]
         nearAddresses level
-          = map    (\(addr, _distance) -> addr)
-          . filter (\(addr, distance)  -> all (== Near) . take level . _unBits . _unDistance $ distance)
-          . map    (\addr              -> (addr, distance ourID . mkID addr $ idSize))
+          = map    (\(addr, _dist)  -> addr)
+          . filter (\(_addr, dist)  -> all (== Near) . take level . _unBits . _unDistance $ dist)
+          . map    (\addr           -> (addr, distance ourID . mkID addr $ idSize))
           $ localhostAddresses
 
         -- Addresses up to an index where each bit of the associated ID is
         -- considered 'Far'.
         farAddresses :: Int -> [Address]
         farAddresses level
-          = map    (\(addr, _distance) -> addr)
-          . filter (\(addr, distance)  -> all (== Far) . take level . _unBits . _unDistance $ distance)
-          . map    (\addr              -> (addr, distance ourID . mkID addr $ idSize))
+          = map    (\(addr, _dist) -> addr)
+          . filter (\(_addr, dist) -> all (== Far) . take level . _unBits . _unDistance $ dist)
+          . map    (\addr          -> (addr, distance ourID . mkID addr $ idSize))
           $ localhostAddresses
 
     describe "when the Contacts ID is 'near'" $ do

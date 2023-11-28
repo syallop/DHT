@@ -24,7 +24,7 @@ import Network.Socket
 
 data MsgState = MsgState
   { -- Map response patterns waited for to MVars waiting for the corresponding message.
-   _msgStateReplyMap   :: forall c. Map.Map RespPat (MVar SomeOut)
+   _msgStateReplyMap   :: Map.Map RespPat (MVar SomeOut)
 
   -- Map each Address we've established contact with to its outgoing socket.
   ,_msgStateSocketsOut :: Map.Map Address Socket
@@ -86,7 +86,7 @@ sendF messagingState (maxPortLength,ourPort) address bs = case extractIPV4UDP ad
     -> withSocketsDo $ modifyMessagingState messagingState $ \state -> do
         (sock,state') <- initialiseSocket state ip port
 
-        nBytes <- Strict.send sock (padPort ourPort `Strict.append` (Lazy.toStrict bs))
+        _nBytes <- Strict.send sock (padPort ourPort `Strict.append` (Lazy.toStrict bs))
 
         -- TODO:
         {-if fromIntegral nBytes == (fromIntegral $ Lazy.length bs) + (fromIntegral $ Strict.length (padPort ourPort))-}
@@ -104,12 +104,11 @@ sendF messagingState (maxPortLength,ourPort) address bs = case extractIPV4UDP ad
           Nothing
             -> do let ipv4     = AF_INET
                       udp      = 17
-                      udpPort  = fromInteger $ toInteger port
                   (inetAddr:_) <- getAddrInfo (Just defaultHints) (Just ip) (Just $ show port)
 
                   sock <- socket ipv4 Datagram udp
                   connect sock $ addrAddress inetAddr
-                  setCloseOnExecIfNeeded <$> unsafeFdSocket sock
+                  _ <- setCloseOnExecIfNeeded <$> unsafeFdSocket sock
                   return (sock, state{_msgStateSocketsOut = Map.insert address sock $ _msgStateSocketsOut state})
 
     -- given a Port (represented by an Int), pad it with the appropriate number of leading zeros
@@ -132,7 +131,7 @@ waitF messagingState size cmd input = do
         replyMap' = Map.insert pattern waitMVar replyMap
     return (state{_msgStateReplyMap = replyMap'},waitMVar)
 
-  (SomeOut cmd o) <- takeMVar waitMVar
+  (SomeOut _cmd o) <- takeMVar waitMVar
   case cast o of
       Nothing -> error "Invalid cast"
       Just o' -> return (o')
@@ -193,7 +192,6 @@ recvF (MessagingState msgState) address = case extractIPV4UDP address of
 
       openOurSocket state = do
         ourSock <- socket AF_INET Datagram 17
-        let udpPort = fromInteger $ toInteger ourPort
         inetAddr:_ <- getAddrInfo (Just defaultHints) (Just ourIP) (Just $ show ourPort)
         bind ourSock $ addrAddress inetAddr
         return (ourSock,state{_msgStateSocketIn = Just ourSock})
@@ -207,10 +205,10 @@ data SomeOut = forall c. Typeable (Out c) => SomeOut (Command c) (Out c)
 -- The pattern we look for to match a sent Command.
 data RespPat = forall c. (Ord (Out c), Ord (In c)) => RespPat (Command c) (RespPatT c)
 type family RespPatT (cmd :: CMD) where
-  RespPatT PING        = Out PING
-  RespPatT STORE       = Out STORE
-  RespPatT FINDCONTACT = In FINDCONTACT
-  RespPatT FINDVALUE   = In FINDVALUE
+  RespPatT 'PING        = Out 'PING
+  RespPatT 'STORE       = Out 'STORE
+  RespPatT 'FINDCONTACT = In 'FINDCONTACT
+  RespPatT 'FINDVALUE   = In 'FINDVALUE
 
 instance Ord RespPat where
   compare = compareRespPat
@@ -248,11 +246,11 @@ eqRespPat (RespPat cmda pata) (RespPat cmdb patb) = case (cmda,cmdb) of
 
 -- given a sent command and its input, create a response pattern to wait for
 respPat :: Int -> Command c -> In c -> RespPat
-respPat size cmd input = case (cmd,input) of
+respPat _size cmd input = case (cmd,input) of
   (Ping,i)
     -> RespPat cmd i
 
-  (Store,(keyId,valBs))
+  (Store,(keyId,_valBs))
     -> RespPat cmd keyId
 
   (FindValue, keyID)

@@ -94,7 +94,7 @@ replaceID
   :: ID
   -> Contact
   -> Contact
-replaceID id (Contact _oldID addr goodness) = Contact id addr goodness
+replaceID cId (Contact _oldID addr goodness) = Contact cId addr goodness
 
 -- | Access a Contacts ID.
 contactID
@@ -119,7 +119,7 @@ updateGoodness
   :: (Goodness -> Goodness)
   -> Contact
   -> Contact
-updateGoodness f (Contact id addr goodness) = Contact id addr (f goodness)
+updateGoodness f (Contact cId addr goodness) = Contact cId addr (f goodness)
 
 setGood :: Contact -> Contact
 setGood = updateGoodness (const Good)

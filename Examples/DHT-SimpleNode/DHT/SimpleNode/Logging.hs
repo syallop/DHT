@@ -16,6 +16,6 @@ import DHT.Client (Logging)
 newSimpleLogging :: IO (Logging IO)
 newSimpleLogging = do
   loggingState <- newChan
-  forkIO $ forever $ readChan loggingState >>= putStrLn
+  _threadID <- forkIO $ forever $ readChan loggingState >>= putStrLn
   return $ Just (writeChan loggingState)
 

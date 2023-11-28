@@ -18,7 +18,7 @@ module DHT.Client.Op.ValueStore
 import DHT.Core.ID
 
 import Data.ByteString.Lazy.Char8 (ByteString)
-import Prelude hiding (insert, lookup)
+import Prelude hiding (lookup)
 
 -- TODO:
 -- - Insert and lookup are bad names?

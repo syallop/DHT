@@ -91,7 +91,7 @@ spec = do
     -- Waay too complex
     it "updates Questionable contacts to Good" $ do
       ( fromJust
-       . (`updateBucket` (\addr -> Just True))
+       . (`updateBucket` (\_ -> Just True))
        . fromJust
        . modifyBucketContact contact1ID setBad
        . fromJust
@@ -111,7 +111,7 @@ spec = do
 
     it "updates Questionable contacts to Bad" $ do
       ( fromJust
-       . (`updateBucket` (\addr -> Just False))
+       . (`updateBucket` (\_ -> Just False))
        . fromJust
        . modifyBucketContact contact1ID setBad
        . fromJust
@@ -133,14 +133,14 @@ spec = do
     -- - No extra Contacts must be present
     -- - Balance must be as expected
     it "splits in two across an ID" $ do
-      let contacts :: [Contact]
-          contacts = map (\i -> mkContact 8 $ (IPV4 "127.0.0.1") `AddressThen` (Address $ UDP i)) [1..10]
+      let cs :: [Contact]
+          cs = map (\i -> mkContact 8 $ (IPV4 "127.0.0.1") `AddressThen` (Address $ UDP i)) [1..10]
 
-          bucket :: Bucket
-          bucket = foldr (\contact bucket -> enter (contactID contact) (contactAddress contact) (epoch + 1) bucket)
-                         (emptyBucket epoch)
-                         contacts
-          (leftBucket,rightBucket) = split (mkID (100::Int) 8) 4 bucket
+          b :: Bucket
+          b = foldr (\contact bucket -> enter (contactID contact) (contactAddress contact) (epoch + 1) bucket)
+                    (emptyBucket epoch)
+                    cs
+          (leftBucket,rightBucket) = split (mkID (100::Int) 8) 4 b
 
       (bucketSize leftBucket + bucketSize rightBucket) `shouldBe` 10
 

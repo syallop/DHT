@@ -8,7 +8,7 @@ module DHT.SimpleNode.RoutingTable
   )
   where
 
-import Prelude hiding (insert,lookup)
+import Prelude hiding (lookup)
 
 import DHT
 import DHT.Client
@@ -21,29 +21,29 @@ type RTState = MVar Routing
 -- Insert a new address into the routingtable, pinging questionable nodes with
 -- the ping function to update them if required.
 rtInsert :: RTState -> Address -> Time -> (Address -> DHT IO Bool) -> DHT IO ()
-rtInsert rtState address time ping = do
+rtInsert rtState address time pingAddress = do
   rt  <- liftDHT $ takeMVar rtState
 
   size <- hashSize
 
-  rt' <- insert address time ping size rt
+  rt' <- insert address time pingAddress size rt
   liftDHT $ putMVar rtState rt'
 
 -- Lookup the Contact associated with an 'ID', also return k neighbour contacts
 -- relative from the enquiring Addr.
 rtLookup :: RTState -> Address -> ID -> Time -> Int -> IO ([Contact],Maybe Contact)
-rtLookup rtState enquirerAddr targetID now hashSize = do
+rtLookup rtState enquirerAddr targetID now commonHashSize = do
   rt <- takeMVar rtState
-  let (rt',res) = lookup enquirerAddr targetID now hashSize rt
+  let (rt',res) = lookup enquirerAddr targetID now commonHashSize rt
   putMVar rtState rt'
   return res
 
 newSimpleRoutingTable :: Int -> ID -> Time -> Int -> IO (RoutingTable DHT IO)
-newSimpleRoutingTable size ourID now hashSize = do
-  rtState <- newMVar $ empty size ourID now
+newSimpleRoutingTable size ourCID now commonHashSize = do
+  rtState <- newMVar $ empty size ourCID now
   pure $ mkRoutingTable
     (rtInsert rtState)
     (\addr enquirer time
-      -> rtLookup rtState addr enquirer time hashSize)
+      -> rtLookup rtState addr enquirer time commonHashSize)
     (pure size)
 
