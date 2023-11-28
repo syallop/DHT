@@ -288,12 +288,8 @@ spec = do
                -- All Questionable contacts will be ping'd to be Good.
                (finalRouting, pinged) = runMock . insert farAddress (epoch + 1) pingAllGood idSize $ initialRouting
 
-               -- The Addresses contained in the final routing table
-               finalAddresses :: [Address]
-               finalAddresses = map contactAddress . toList $ finalRouting
-
           -- Double check we havn't breached the first bucket
-          (bucketCount initialRouting)
+          (bucketCount finalRouting)
             `shouldBe` 1
 
           -- The Questionable contact should have been pinged
