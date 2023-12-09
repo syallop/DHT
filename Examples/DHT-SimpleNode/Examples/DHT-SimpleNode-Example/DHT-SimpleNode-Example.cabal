@@ -1,9 +1,10 @@
+cabal-version:       3.8
 name:                DHT-SimpleNode-Example
-version:             0.2.2.0
+version:             0.3.0.0
 synopsis:            Example of using DHT-SimpleNode (which is in turn an example of instantiating DHT)
 description:         Run several DHT.SimpleNode's (which makes the choice of using UDP,MVars,DHT.Routing and in memory Maps to store data)
                      to test storing and looking up data and neighbours.
-license:             BSD3
+license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Samuel A. Yallop
 maintainer:          syallop@gmail.com
@@ -11,7 +12,6 @@ maintainer:          syallop@gmail.com
 -- category:
 build-type:          Simple
 --extra-source-files:
-cabal-version:       >=1.10
 
 executable DHT-SimpleNode-Example
   main-is:             Main.hs

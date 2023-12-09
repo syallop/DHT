@@ -2,6 +2,7 @@
     FlexibleContexts
   , GADTs
   , RankNTypes
+  , TypeOperators
   #-}
 {-|
 Stability : experimental
@@ -144,8 +145,6 @@ newtype DHT m a = DHT {_runDHT :: Config DHT m -> m (Either DHTError a)}
 -- DHTs Monad instance threads DHTState as readable state, executes in 'm' and
 -- shortcircuits if a DHTError is returned.
 instance Monad m => Monad (DHT m) where
-  return a = DHT $ \_ -> return $ Right a
-
   (DHT ma) >>= f = DHT $
     \r -> do res <- ma r
              case res of
@@ -153,7 +152,7 @@ instance Monad m => Monad (DHT m) where
                Right a  -> _runDHT (f a) r
 
 instance (Monad m,Functor m) => Applicative (DHT m) where
-  pure  = return
+  pure a = DHT $ \_ -> pure $ Right a
   (<*>) = ap
 
 instance Functor m => Functor (DHT m) where

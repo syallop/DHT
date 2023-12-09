@@ -100,8 +100,9 @@ spec = do
        . enter contact0ID contact0Addr (epoch+1)
        . emptyBucket
        $ epoch)
-        `shouldSatisfy` (\(bucket,False)
+        `shouldSatisfy` (\(bucket,contactsDropped)
                           -> and
+                              . (not contactsDropped :)
                               . zipWith exactlyEqual [setBad  . replaceID contact1ID . mkContact 8 $ contact1Addr
                                                      ,setGood . replaceID contact0ID . mkContact 8 $ contact0Addr
                                                      ]
@@ -120,8 +121,9 @@ spec = do
        . enter contact0ID contact0Addr (epoch+1)
        . emptyBucket
        $ epoch)
-        `shouldSatisfy` (\(bucket,True)
+        `shouldSatisfy` (\(bucket,contactsDropped)
                           -> and
+                              . (contactsDropped :)
                               . zipWith exactlyEqual [setBad  . replaceID contact1ID . mkContact 8 $ contact1Addr
                                                      ]
                               . contacts

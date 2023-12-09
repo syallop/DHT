@@ -1,5 +1,6 @@
+cabal-version:       3.8
 name:                DHT
-version:             0.4.0.0
+version:             0.5.0.0
 synopsis:            Kademlia-like Distributed HashTable
 description:         An API for a distributed HashTable built on a small set of
                      core commands and abstracted over dependencies such as
@@ -12,7 +13,6 @@ maintainer:          syallop@gmail.com
 category:            DHT
 build-type:          Simple
 -- extra-source-files:
-cabal-version:       >=1.10
 
 library
   exposed-modules:     DHT
@@ -50,12 +50,6 @@ library
                      , word8
 
   ghc-options:        -fwarn-unused-imports
-  if impl(ghc >= 8.0.0)
-    ghc-options:      -Whi-shadowing
-  else
-    ghc-options:      -fwarn-hi-shadowing
-                      -fwarn-tabs
-                      -threaded
   -- hs-source-dirs:
   default-language:    Haskell2010
 

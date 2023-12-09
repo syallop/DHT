@@ -49,7 +49,12 @@ modifyMessagingState (MessagingState msgState) f = modifyMVar msgState f
 -- example including 'unique' tokens in sent messages).
 newSimpleMessaging :: Int -> (Int,Address) -> IO (Messaging IO)
 newSimpleMessaging size (maxPortLength,ourAddress) = do
-  let Just (_, ourPort) = extractIPV4UDP ourAddress
+  let ourPort = case extractIPV4UDP ourAddress of
+                  Just (_, port)
+                    -> port
+
+                  Nothing
+                    -> error "Could not extract port from our address"
 
   msgState <- newMessagingState
 

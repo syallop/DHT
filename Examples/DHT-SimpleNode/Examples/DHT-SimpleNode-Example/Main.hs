@@ -9,7 +9,7 @@ import DHT.Core
 
 import Control.Concurrent
 import Control.Monad
-import Data.Monoid
+import Data.Monoid ()
 import Data.ByteString.Lazy
 import Data.String.Conv
 import qualified Data.ByteString.Lazy.Char8 as Lazy
@@ -37,8 +37,8 @@ lgPrefix p str = lg (p <> str)
 -- Prefix a log string with a name and our id
 lgAt :: String -> String -> DHT IO ()
 lgAt name str = do
-  id <- ourID
-  lgPrefix (show id <> " " <> name <> " :\t") str
+  oId <- ourID
+  lgPrefix (show oId <> " " <> name <> " :\t") str
 
 -- Store two values in the DHT, then show their IDs then try and retrieve the
 -- values, expecting them to be the same.
@@ -113,17 +113,17 @@ testLookup = do
 -- our own ID.
 testNeighbours :: DHT IO ()
 testNeighbours = do
-  id <- ourID
-  lgHere $ "Our ID is" ++ show id
+  oId <- ourID
+  lgHere $ "Our ID is" ++ show oId
 
   lgHere "Attempt to find the neighbours of our ID"
-  (ns,mn) <- findContact id
+  (ns,mn) <- findContact oId
   lgHere $ (case mn of
     Nothing
       -> "We're not already known about"
 
     Just i
-      | contactID i == id
+      | contactID i == oId
       -> "We found ourself"
       | otherwise
       -> "We found a collision with ourself!!"
@@ -145,8 +145,8 @@ main = do
 
       -- Make the config for one of our test nodes at a given addr
       -- Decide whether to bootstrap off the designated bootstrap address.
-      mkConfig :: Address -> Bool -> IO (Config DHT IO)
-      mkConfig ourAddr shouldBootstrap
+      mkExampleConfig :: Address -> Bool -> IO (Config DHT IO)
+      mkExampleConfig ourAddr shouldBootstrap
         = let mBootstrapAddr = if shouldBootstrap then Just bootstrapAddr else Nothing
              in mkSimpleNodeConfig ourAddr size mLogging mBootstrapAddr
 
@@ -162,19 +162,19 @@ main = do
           -> DHT IO a  -- DHT computation to execute
           -> IO ()
       run testName startDelay shouldBootstrap ourAddr dhtProgram
-        = forkVoid_ $ do config <- mkConfig ourAddr shouldBootstrap
+        = forkVoid_ $ do config <- mkExampleConfig ourAddr shouldBootstrap
                          newSimpleNode config $ do lg $ "Creating " ++ testName ++ " node."
                                                    liftDHT $ delay startDelay
-                                                   dhtProgram
+                                                   void dhtProgram
                                                    idle
 
   -- Create the first node others will use as a bootstrap.
   run "bootstrap" 0 False bootstrapAddr $ return ()
 
   -- Create several other nodes.
-  forM [6472 .. 6480] $ \port -> do let name = ("bootstrap" <> show port)
-                                    run name 0 True (fromParts (IPV4 "127.0.0.1") [UDP port]) $ doNothing name
-                                    delay 1
+  forM_ [6472 .. 6480] $ \port -> do let name = ("bootstrap" <> show port)
+                                     run name 0 True (fromParts (IPV4 "127.0.0.1") [UDP port]) $ doNothing name
+                                     delay 1
   -- Test storing and retrieving a value
   run "testStore" 1 True (fromParts (IPV4 "127.0.0.1") [UDP 6481]) testStore
 

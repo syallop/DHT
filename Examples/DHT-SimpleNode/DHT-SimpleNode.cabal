@@ -1,5 +1,6 @@
+cabal-version:       3.8
 name:                DHT-SimpleNode
-version:             0.4.0.0
+version:             0.5.0.0
 synopsis:            A simple concrete implementation of the DHT package.
 description:         Makes simple choices for instantiating a DHT node using the
                      DHT API. Particularly uses: UDP, MVars, DHT.Routing and
@@ -12,7 +13,6 @@ maintainer:          syallop@gmail.com
 category:            DHT
 build-type:          Simple
 -- extra-source-files:
-cabal-version:       >=1.10
 
 library
   exposed-modules:     DHT.SimpleNode

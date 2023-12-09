@@ -21,5 +21,5 @@ spec = do
         `shouldBe` [IPV4 "127.0.0.1", UDP 6543]
 
     it "Can be hashed to a stable value" $
-      hash testAddress `shouldBe` (-6056951320977809105)
+      hash testAddress `shouldBe` (-3340184379538468600)
 

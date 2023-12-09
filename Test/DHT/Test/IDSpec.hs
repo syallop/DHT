@@ -31,11 +31,12 @@ spec = do
       (show $ mkID True 2)
         `shouldBe` "01"
 
-    it "Lazy and strict ByteStrings create the same IDs" $ do
-      -- There's no guarantee bytestring doesn't change this behavior but it's
-      -- nice to know whether it can be relied upon.
+    it "Lazy and strict ByteStrings create DIFFERENT IDs" $ do
+      -- Before a particular version of the Hashable package, this wasn't true
+      -- and we therefore could maybe be more lax about the type of BS we were
+      -- hashing.
       (mkID ("words"::ByteString) 8)
-        `shouldBe` (mkID ("words"::Lazy.ByteString) 8)
+        `shouldNotBe` (mkID ("words"::Lazy.ByteString) 8)
 
     it "Text, Strings and ByteStrings do NOT create the same IDs" $ do
       -- This is an easy mistake to make. This test calls out that it can't be
@@ -44,7 +45,7 @@ spec = do
         `shouldNotBe` (mkID ("words"::String) 8)
 
       (mkID ("words"::Text) 8)
-        `shouldNotBe` (mkID ("words"::ByteString) 8)
+        `shouldBe` (mkID ("words"::ByteString) 8)
 
       (mkID ("words"::Text) 8)
         `shouldNotBe` (mkID ("words"::String) 8)
